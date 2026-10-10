@@ -1,46 +1,68 @@
 <p align="center">
-  <img src="docs/brand/lizard-app-icon-1024.png" width="128" alt="Lizard app icon">
+  <img src="docs/brand/lizard-app-icon-1024.png" width="140" alt="Lizard app icon">
 </p>
 
 <h1 align="center">Lizard</h1>
 
 <p align="center">
-  A fast, private launcher for macOS — apps, notes, clipboard, AI and Raycast extensions, one keystroke away.<br>
-  Native Swift. Local AI by default. No subscription.
+  <b>A fast, private, native launcher for macOS.</b><br>
+  Apps, notes, clipboard, screenshots, windows, translation, a calculator, local AI that knows your notes,<br>
+  and Raycast-compatible extensions from any GitHub repo, all one keystroke away.
 </p>
 
 <p align="center">
-  <img src="docs/brand/splash.png" width="520" alt="Lizard splash screen">
+  <img src="docs/brand/splash.png" width="560" alt="Lizard splash screen">
+</p>
+
+<p align="center">
+  <i>Native Swift · Runs on your Mac · No account · No subscription · No extension store</i>
 </p>
 
 ---
 
-## What it does
+## Contents
 
-Press **⌃Space** anywhere and start typing.
+- [Why Lizard](#why-lizard)
+- [Install](#install)
+- [First run](#first-run)
+- [Keyboard shortcuts](#keyboard-shortcuts)
+- [The launcher](#the-launcher)
+- [Features](#features)
+  - [Search, quicklinks & calculator](#search-quicklinks--calculator)
+  - [Notes](#notes)
+  - [Work Log](#work-log)
+  - [Clipboard history](#clipboard-history)
+  - [Screenshots](#screenshots)
+  - [Search by meaning & Ask Your Notes](#search-by-meaning--ask-your-notes)
+  - [AI chat & AI actions](#ai-chat--ai-actions)
+  - [Translate](#translate)
+  - [Window management](#window-management)
+  - [Developer tools](#developer-tools)
+- [Private AI](#private-ai)
+- [Extensions](#extensions)
+- [GitHub in your menu bar](#github-in-your-menu-bar)
+- [Sync, backup & moving from Raycast](#sync-backup--moving-from-raycast)
+- [Privacy](#privacy)
+- [Troubleshooting](#troubleshooting)
+- [For developers](#for-developers)
+- [Roadmap](#roadmap)
+
+---
+
+## Why Lizard
 
 | | |
 |---|---|
-| **Launcher** | Fuzzy search across apps, commands, quicklinks and extensions (`vsc` → Visual Studio Code). Ranks what you use often and recently first. The panel never steals focus from the app you're in. |
-| **Quicklinks** | URL templates with `{query}`, `{clipboard}` and `{selection}`. Type `gh lizard` to search GitHub, `so swift actors` for Stack Overflow, or `code ~/projects/x` to open a folder in VS Code. |
-| **Ask AI** | Press **Tab** in the launcher (or **⌥⇧A**) to chat. Answers render as Markdown with code blocks; you can stop a reply mid-stream, and chats are saved. |
-| **AI actions** | Summarize or explain your clipboard, summarize today's or this week's work log, or write a **brag document** from the last 90 days of work. |
-| **Notes** | Plain Markdown files in `~/Documents/Notes` with folders, `#tags`, pins and live highlighting. **Read mode** puts a copy button on every code block, and a note that's just a command becomes a **snippet**: findable from the launcher, ↩ copies it. The on-device AI suggests a folder and tags. |
-| **Search by meaning** | Search notes, work log, clipboard, chats and screenshots by meaning: “that redis timeout thing” finds the note even if those words never appear in it. **Ask Your Notes** answers from them, citing sources. Everything runs on your Mac. |
-| **Screenshots** | **⌃⇧S** captures an area. Lizard reads the text (on-device OCR), names and categorizes the image with on-device AI, files it in `Pictures/Lizard Screenshots/<Category>/<Month>/` and copies it. Browse by category and search the text inside your screenshots. |
-| **Calculator** | Type math right into the launcher: `15% of 80`, `2^10`, `sqrt(16)+2pi`, `5 km in mi`, `100 f to c`, `2 gb in mb`. |
-| **Window management** | **⌃⌥ + arrows** for halves, **⌃⌥↩** to maximize, **⌃⌥C** to center, plus quarters, thirds, next display and restore from the launcher. |
-| **Translate** | On-device translation with Apple's Translation framework (private, works offline). Google is an optional fallback. |
-| **Work Log** | Press **⌥⇧W**, type what you just finished and press ↩. The entry is stamped with the time and the app you were in, and saved to `~/Documents/WorkLogs/2026-10.md`. |
-| **Clipboard history** | Press **⌥⇧V**. Search everything you copied (text, links, files, images); ↩ pastes it into the app you were in. You can pin items. Passwords from password managers are never stored. |
-| **Developer tools** | JSON format/minify, JWT decode, Base64, URL encoding, hashes, timestamps, case conversion. **Listening Ports** shows who's on :3000 and lets you stop it. **Kill Process** sorts processes by CPU or memory. |
-| **Extensions** | Runs **Raycast extensions** from the Raycast Store or a folder — lists, details, forms, grids, actions and **menu-bar commands**. |
-| **GitHub** | Pull requests waiting on you, in the menu bar. Sign in with your browser — no tokens. |
+| 🦎 **Native and instant** | Written in Swift with SwiftUI and AppKit. The panel opens over any app without taking focus away from it, and reopens exactly where you left it. |
+| 🔒 **Private by default** | Notes, the work log, clipboard history, screenshots and the AI all stay on your Mac. Cloud AI is off until you turn it on. |
+| 🧠 **AI that knows your stuff** | Search your notes, work log, clipboard, chats and screenshots by *meaning*, and ask questions answered from them, with sources. |
+| 🧩 **Open extensions** | Runs Raycast extensions. Install anything from any GitHub repo; there's no store and no review queue. Lizard checks for updates for you. |
+| ☁️ **Yours everywhere** | Syncs through your Apple ID (iCloud Drive), backs up to a single file, and imports your Raycast setup. |
 
 ## Install
 
-Requirements: an Apple Silicon Mac on **macOS 26**, Xcode 26.2, [XcodeGen](https://github.com/yonaskolb/XcodeGen),
-and **Node.js** (for extensions; `brew install node`).
+**Requirements:** an Apple Silicon Mac on **macOS 26**. To build: Xcode 26.2, [XcodeGen](https://github.com/yonaskolb/XcodeGen)
+(`brew install xcodegen`), and **Node.js** for extensions (`brew install node`).
 
 ```sh
 git clone <this repo> lizard && cd lizard
@@ -51,136 +73,316 @@ xcodebuild -project Lizard.xcodeproj -scheme Lizard -configuration Release \
 open DerivedData/Build/Products/Release/Lizard.app
 ```
 
-On first launch, a short setup walks you through:
+Lizard lives in the menu bar (🦎) and has no Dock icon. Press **⌃Space** anywhere to open it.
 
-1. **Shortcuts** — record your own. The default ⌃Space also switches keyboard input sources if you use several layouts;
-   setup warns you about that.
-2. **Accessibility** — only needed to paste into other apps.
-3. **Folders** for notes and the work log.
-4. **AI** — Apple Intelligence, a local model sized for your Mac, or an opt-in cloud.
-5. **GitHub** — browser sign-in, then the menu-bar extension.
-6. **Try it** — press your shortcut and watch it work.
+## First run
 
-You can rerun setup any time from the menu-bar icon or the **Run Setup** command.
+An animated gecko greets you, then a short setup walks through each step. You can skip any of them and come back
+later from **Settings › General › Run setup again**.
 
-> Can't see Lizard's menu-bar icons? On MacBooks with a notch and a full menu bar, macOS hides new icons behind the
-> notch. Hold ⌘ and drag other icons out of the menu bar, or hide some in System Settings › Menu Bar.
+1. **Shortcuts:** click a field and press the keys you want.
+   - ⌃Space also switches keyboard input sources if you use several layouts; Lizard warns you.
+   - ⌘Space belongs to Spotlight; Lizard tells you how to free it.
+2. **Permissions:** **Accessibility** lets Lizard paste into other apps, move windows and read the selected text.
+   Everything else works without it.
+3. **Folders:** where notes and the work log live (default `~/Documents/Notes` and `~/Documents/WorkLogs`).
+4. **AI:** Apple Intelligence, a local model sized for your Mac, or an opt-in cloud.
+5. **GitHub:** sign in with your browser and add pull requests to your menu bar.
+6. **Raycast:** shown only if Lizard finds Raycast. Import your extensions and quicklinks.
+7. **Try it:** press your shortcut and watch the launcher open.
+
+## Keyboard shortcuts
+
+Every global shortcut can be re-recorded in **Settings › Shortcuts**.
+
+| Global | Action |
+|---|---|
+| **⌃Space** | Open / close Lizard |
+| **⌥⇧A** | Ask AI |
+| **⌥⇧V** | Clipboard history |
+| **⌥⇧W** | Work Log |
+| **⌥⇧N** | New note |
+| **⌃⇧S** | Capture a screenshot (area) |
+| **⌃⌥ ← / → / ↑ / ↓** | Snap the front window to the left / right / top / bottom half |
+| **⌃⌥ ↩** | Maximize the front window |
+| **⌃⌥ C** | Center the front window |
+
+| In the launcher | Action |
+|---|---|
+| **↑ / ↓**, **↩** | Move, open |
+| **⇥** | Ask AI about what you typed |
+| **⌘K** | Actions for the selected item |
+| **⌘1 … ⌘8** | Home tiles (Ask AI, Clipboard, Notes, Screenshots, Work Log, Translate, By Meaning, Kill Process) |
+| **Esc** | Go back one screen, then clear the search, then close |
+
+## The launcher
+
+<p align="center"><i>A glass panel with a living gecko, a glow that travels around its edge, and a selection that glides between rows.</i></p>
+
+- **Home ("the den"):** with nothing typed, Lizard shows a greeting, eight quick tiles (⌘1–⌘8), what you use most
+  and every command.
+- **Ranking:** results come from fuzzy matching (`vsc` → **V**isual **S**tudio **C**ode, matched letters
+  highlighted). Things you open often and recently rise to the top.
+- **Reopens where you left off:** open a note, switch apps, press ⌃Space, and you're back in that note. Esc goes back
+  to the search, with the cursor already in it. You can turn this off in **Settings › General**.
+- **Panel size:** compact for search; it grows smoothly for roomy screens (Notes, Screenshots, Clipboard…).
+- **Little details:** the gecko wags its tail while you type and flicks its tongue when you summon it. The edge glow
+  flares each time Lizard opens. Reduce Motion turns all of this off.
+
+## Features
+
+### Search, quicklinks & calculator
+
+- **Apps:** everything in `/Applications`, `~/Applications`, the system app folders and Finder, kept up to date as you
+  install or delete apps. ⌘K offers *Show in Finder*, *Copy Path* and *Quit App*.
+- **Quicklinks:** URL templates you open with whatever you type.
+  - `gh lizard` searches GitHub, `so swift actors` Stack Overflow, `mdn grid` MDN, `npm zod` npm, and
+    `code ~/projects/app` opens a folder in VS Code.
+  - Placeholders: `{query}`, `{clipboard}`, `{selection}`. Manage them with **Manage Quicklinks**.
+- **Calculator** answers as you type; ↩ copies the result:
+
+  | Type | Get |
+  |---|---|
+  | `2+3*4`, `(2+3)*4`, `2^10` | `14`, `20`, `1,024` |
+  | `15% of 80`, `200 + 10%`, `50 - 20%` | `12`, `220`, `40` |
+  | `sqrt(16) + 2pi`, `round(2.5)`, `log(1000)` | functions and constants |
+  | `5 km in mi`, `100 f to c`, `2 gb in mb`, `90 min to h` | length, mass, volume, data, time, temperature |
+
+- **Fallbacks:** anything you type can also go to **Ask AI**, **Ask Your Notes**, **Translate** or a quicklink.
+
+### Notes
+
+Plain Markdown files in a folder you choose, so you can edit them anywhere and sync them however you like.
+
+- **Live Markdown editor:** it stays plain text, but looks formatted as you type.
+  - Real headings, **bold**, *italic*, links, quotes with a side bar, `inline code` chips.
+  - Code blocks draw as rounded panels in a monospaced font with light syntax colours, and each has a **copy button**.
+  - Type ```` ``` ```` and press ↩: the closing fence appears and the cursor waits inside.
+  - ↩ continues bullet, numbered and checkbox lists; ↩ on an empty item ends the list. ⇥ / ⇧⇥ indent and outdent.
+  - Accented characters compose normally (é, ã, ç…).
+- **Read mode (⌘E):** a clean rendering where every code block has a **Copy** button.
+- **Folders:** real subfolders. Create them from the sidebar, drag notes onto them, nest them.
+- **Tags:** `#hashtags` anywhere in the text, or front matter (`tags: [deploy, k8s]`), compatible with Obsidian.
+  Browse them in the sidebar; search `#tag`.
+- **Pins:** pinned notes stay on top.
+- **Snippets:** a note that's just a command or one code block is a *snippet*. It shows the command in the list with
+  a copy button, and it appears in the **main launcher search**, where ↩ copies it and ⌘K pastes it.
+- **Organize with AI (✨):** the on-device model suggests a folder (preferring ones you already have) and tags. One
+  click applies them.
+- **Search** matches titles, text, folders and `#tags`. **Search by meaning** covers notes too (see below).
+
+### Work Log
+
+A two-second habit for remembering what you did.
+
+- **⌥⇧W** opens a small box. Type what you just finished and press ↩.
+- Each entry is stamped with the time and the app you were in, and appended to a monthly file:
+  `- 2026-10-10T14:03:05+02:00 [Xcode] Fixed the flaky login test` in `~/Documents/WorkLogs/2026-10.md`.
+- **Summarize Today's Work**, **Weekly Work Summary** and **Write Brag Document** (from the last 90 days, grouped by
+  impact) turn the log into stand-up notes and review material using the local AI.
+
+### Clipboard history
+
+- **⌥⇧V:** search everything you copied: text, links, files and images, newest first, with pins.
+- **↩ pastes** straight into the app you were in (needs Accessibility); ⌘C copies; ⌘P pins.
+- **⌘S** summarizes the selected item and **Explain** explains it, both with the local AI.
+- **Private:** items marked concealed or transient (how password managers mark secrets) and copies from 1Password,
+  Bitwarden, Keychain Access, Passwords and other managers are **never stored**.
+- Stored in SQLite with full-text search. Keeps the last 1,000 items or 30 days, plus anything pinned.
+
+### Screenshots
+
+- **⌃⇧S** captures an area using macOS's own crosshair: press Space for a window, Esc to cancel. *Capture Window* and
+  *Capture Screen* are in the launcher.
+- **Lizard does the rest, on your Mac:**
+  1. reads the text in the image (Vision OCR),
+  2. names it and picks a category with the on-device AI (rules based on the app and the text are the fallback),
+  3. saves it to `~/Pictures/Lizard Screenshots/<Category>/<Month>/2026-10-10 15.00.12 Login crash.png`,
+  4. copies it to the clipboard.
+- **Categories:** Code, Terminal, Errors, Design, Documents, Chats, Web, Receipts, Meetings, Photos, Other.
+- **Gallery:** filter by category, search titles, tags and the **text inside the images**. ↩ copies; ⌘E opens
+  Preview to annotate. *Move to* re-files a screenshot; *Copy Text* copies what it recognized; *Explain with AI*.
+- The recognized text is indexed for **Search by meaning**, so "that invoice from the hotel" finds the screenshot.
+
+### Search by meaning & Ask Your Notes
+
+<p align="center"><i>“that redis timeout problem” finds the note titled “Incident: checkout requests hanging”, even though neither word appears in it.</i></p>
+
+- **Search by Meaning** looks across notes, the work log, clipboard, AI chats and screenshots.
+  - It combines meaning (on-device embeddings) with exact keywords, so paraphrases *and* exact terms like
+    `ECONNRESET` both work.
+  - The best matches also show under **From your notes** in the main search.
+- **Ask Your Notes** (or ⇥ in that screen): ask a question and get an answer written only from your own content, with
+  numbered **sources** you can click. If your notes don't cover it, it says so instead of guessing.
+- **Models:**
+  - Starts with Apple's built-in English model.
+  - Download **Qwen3 Embedding** (~350 MB, 100+ languages) in **Settings › AI** for better results in every language.
+- **Choose what's indexed:** in Settings › AI, per source. Everything stays on your Mac, the index updates in the
+  background, and unchanged items are never re-processed.
+
+### AI chat & AI actions
+
+- **Ask AI** (⇥ from the search, or ⌥⇧A): streaming chat with Markdown and code blocks. Stop a reply any time;
+  conversations are saved in **AI Chat History**.
+- **One-shot actions:** *Summarize Clipboard*, *Explain Clipboard* (code, errors, commands), *Summarize Today's Work*,
+  *Weekly Work Summary*, *Write Brag Document*. Each opens as a page you can copy or continue as a chat.
+
+### Translate
+
+- On-device translation with Apple's **Translation** framework: private and offline once a language is downloaded.
+- The source language is detected for you; pick the target and swap with ⌘S.
+- ⌘↩ copies, ⌥↩ pastes into the app you were in.
+- Opens with the text you typed or selected. *Translate online with Google* is there only if you ask for it.
+
+### Window management
+
+- ⌃⌥ + arrows for halves, ⌃⌥↩ to maximize, ⌃⌥C to center, all working on the front window anywhere.
+- From the launcher (`window …`): quarters, thirds, two-thirds, almost-maximize, **move to next display** and
+  **restore** the previous size.
+- Needs Accessibility.
+
+### Developer tools
+
+- **Developer Tools:** JSON format, minify and sort keys · JWT decode (header, payload, human-readable exp/iat) ·
+  Base64 · URL encode/decode · MD5/SHA-1/SHA-256 · UUID · Unix timestamp ↔ ISO date · camelCase, snake_case,
+  kebab-case and Title Case · HTML entities · character/word/line counts. Input defaults to your clipboard.
+- **Listening Ports:** who's on :3000? Stop (⌘⌫), force kill (⌥⌘⌫) or open `localhost:<port>`.
+- **Kill Process:** every process sorted by CPU or memory, with app icons and live updates. Stop or force kill
+  (Lizard asks before force-killing).
 
 ## Private AI
 
-Lizard tries engines in this order, and **nothing leaves your Mac unless you switch on “Allow cloud AI”**:
+Lizard tries engines in this order. **Nothing leaves your Mac unless you turn on "Allow cloud AI".**
 
-1. **Apple Intelligence** — Apple's on-device model. Instant, nothing to download.
-2. **A local model** running on the GPU through [MLX](https://github.com/ml-explore/mlx-swift). The default is
-   **Qwen3 4B** (Qwen3 1.7B on Macs with 16 GB or less). Settings › AI lists bigger models, each with a fit rating for
-   your Mac's memory. The model unloads after it's been idle for a while and when memory runs low.
-3. **Cloud, opt-in.** Every sign-in happens in the browser:
-   - **OpenRouter** (Claude, GPT, Gemini and free models through one OAuth sign-in);
-   - **OpenCode Zen** (uses your existing `opencode auth login`);
-   - Anthropic and OpenAI keys.
-   - Ollama / LM Studio also work as a local server.
+| Engine | What it's for | Notes |
+|---|---|---|
+| **Apple Intelligence** | instant answers, tagging, screenshot and note organization | nothing to download |
+| **Local model (MLX)** | chat, summaries, explanations | default **Qwen3 4B** (Qwen3 1.7B on 16 GB Macs). Bigger models in Settings › AI, each with a fit rating for your Mac's memory. Unloads when idle or when memory runs low. |
+| **Embeddings** | search by meaning | Apple's English model, or **Qwen3 Embedding 0.6B** (multilingual) |
+| **Cloud, opt-in** | heavier questions | **OpenRouter** (Claude, GPT, Gemini, free models) and **OpenCode Zen** (reuses `opencode auth login`), both with browser sign-in; Anthropic and OpenAI keys; Ollama / LM Studio as a local server |
+
+Local models download from Hugging Face only when you click **Download**, with a disk-space check, progress, and an
+automatic resume if the connection stalls.
 
 ## Extensions
 
-Lizard runs extensions written for Raycast. Each command runs in its own Node.js process, using Lizard's own
-implementation of the public `@raycast/api` and `@raycast/utils`. The extension's React UI is sent to the app as a view
-tree and drawn with native SwiftUI views.
+Lizard runs extensions written for Raycast. It implements the public `@raycast/api` and `@raycast/utils` and draws
+their screens with native SwiftUI views: lists with detail panes, forms, grids, actions, toasts and **menu-bar
+commands**.
 
-- **No store, no gatekeeping.** Install any extension from GitHub: paste `github.com/owner/repo` (or
-  `owner/repo/path@tag`) in Settings › Extensions. Lizard downloads only that folder, pinned to a commit, builds it,
-  and **checks for new versions** every few hours. A bare name like `google-translate` installs from Raycast's
-  public repo.
-- **Build your own** with `lizardcli ext new my-extension`, following [docs/EXTENSIONS.md](docs/EXTENSIONS.md)
-  (written for people and AI agents). `lizardcli ext validate` checks your extension against the guidelines.
-- **Share** an extension with a friend as a `.lizardext` file. It contains the code only, none of your data.
-- Anything not made by Lizard is labelled **External**, and Lizard asks before installing it. External extensions
-  aren't reviewed and run with your permissions.
-- **Menu-bar commands** become real menu-bar items and refresh on their schedule.
-- **Built-in extensions** are written from scratch for Lizard. Nothing is copied from the Raycast repository.
+- **No store, no gatekeeping.** Paste any GitHub link in **Settings › Extensions**:
+  - `github.com/owner/repo`
+  - `github.com/owner/repo/tree/main/path/to/extension`
+  - `owner/repo/path@v1.2.0` (pinned to a tag)
+  - `google-translate` (a bare name installs from Raycast's public repo)
 
-| Extension | Commands |
+  Lizard downloads only that folder, pinned to its commit, and builds it.
+- **Updates:** Lizard checks every few hours and offers **Update**, keeping your preferences and data.
+- **External label:** anything Lizard didn't make is marked **External**, and Lizard asks before installing it.
+  External extensions are written by their authors, aren't reviewed, and run with your permissions; Lizard isn't
+  responsible for what they do.
+- **Share:** *Share Extension* creates a `.lizardext` file with the **code only**, none of your data. Friends install it
+  with *Install from File…*.
+- **Build your own:** `lizardcli ext new my-extension`, then follow **[docs/EXTENSIONS.md](docs/EXTENSIONS.md)** (written
+  for people *and* AI agents). `lizardcli ext validate` checks your extension against the guidelines.
+- **Built-in extensions** (original code):
+
+| Extension | What it does |
 |---|---|
-| Translate | Translate Text, Translate Selection (no API key) |
-| Slack | Open favourite channels/people via Slack links (no token) |
-| 1Password | Search items; copy username, password or one-time code (1Password CLI + Touch ID) |
-| Apple Notes | Search Apple Notes, New Apple Note |
-| Warp | Open Warp Here, New Warp Window, Warp Launch Configurations |
-| Apple Reminders | Show Reminders, Quick Reminder, Reminders Due Today (menu bar) |
-| Kill Process | Kill Process |
+| **Translate** | Translate text or the selection (no key) |
+| **Slack** | Jump to favourite channels and people from copied Slack links (no token) |
+| **1Password** | Search items; copy username, password or one-time code via the 1Password CLI (Touch ID) |
+| **Apple Notes** | Search and create Apple Notes |
+| **Warp** | Open Warp here, new window, launch configurations |
+| **Apple Reminders** | Show, complete and add reminders; today's count in the menu bar |
+| **Kill Process** | Find and stop processes |
 
-**GitHub Review Requests** ([raycast/extensions#29775](https://github.com/raycast/extensions/pull/29775)) is offered by
-default. Lizard signs it in through the **GitHub CLI**:
+## GitHub in your menu bar
 
-- If `gh` is already installed and signed in, Lizard uses it.
-- If not, Lizard downloads GitHub's official CLI into `~/.lizard/gh` and opens GitHub's device sign-in page. The code is
-  shown in Lizard and already on your clipboard. Approve in the browser and you're done; no token is created by hand.
+Lizard offers the **GitHub Review Requests** extension by default
+([raycast/extensions#29775](https://github.com/raycast/extensions/pull/29775)): the octocat in your menu bar, with the
+number of pull requests waiting on you in **orange**. It also has search, an activity inbox and attention tracking.
 
-Extension sign-in through OAuth (`OAuth.PKCEClient`) isn't supported yet.
+Sign-in uses the **GitHub CLI**, so you never handle a token:
 
-## Your data, everywhere
+- If you already use `gh`, Lizard uses your login.
+- If not, Lizard downloads GitHub's official CLI into `~/.lizard/gh` and opens GitHub's device sign-in. The code is
+  shown in Lizard and already on your clipboard. Approve in the browser and you're done.
 
-- **iCloud sync** (Settings › Sync & Backup) uses your Apple ID through iCloud Drive. Your quicklinks, settings, shortcuts
-  and extension list follow you to every Mac with Lizard, and notes and the work log can live in iCloud Drive › Lizard.
-- **Backups:** a `.lizardbackup` file holds everything — extensions with their data, quicklinks, settings, and
-  optionally notes and chats.
-- **Coming from Raycast:** setup finds your installed Raycast extensions and imports them (they run as they are).
-  Quicklinks come over through Raycast's *Export Quicklinks* file.
+## Sync, backup & moving from Raycast
+
+- **iCloud sync** (Settings › Sync & Backup) uses your Apple ID through iCloud Drive; there's no account to create.
+  - Quicklinks, settings, shortcuts and your extension list follow you to every Mac with Lizard.
+  - Extensions from another Mac are *offered*, never installed silently.
+  - Notes and the work log can live in **iCloud Drive › Lizard**. Files are copied, never deleted.
+- **Backups:** **Export Backup** writes one `.lizardbackup` file with settings, shortcuts, quicklinks, extensions with
+  their preferences and data, and optionally notes, the work log and chats. **Restore Backup** brings it all back.
+  Passwords and API keys never go into backups.
+- **From Raycast:**
+  - Setup (or Settings › Extensions › *Import from Raycast*) lists your installed Raycast extensions; they run in Lizard
+    as they are.
+  - Raycast encrypts its own data, so quicklinks come over with Raycast's **Export Quicklinks** file
+    (`{Query}` placeholders are converted).
 
 ## Privacy
 
-- Notes and work logs are plain files in your Documents folder. Clipboard history, chats and extension data live in
-  `~/Library/Application Support/Lizard`.
-- Clipboard history skips items marked concealed or transient (how password managers mark secrets) and copies made in
-  1Password, Bitwarden, Keychain Access and Passwords.
-- API keys live in one macOS Keychain item.
-- Cloud AI is off until you turn it on.
+| Data | Where it lives | Leaves your Mac? |
+|---|---|---|
+| Notes, work log | Markdown files in your folders | only if you put them in iCloud Drive |
+| Clipboard history | `~/Library/Application Support/Lizard/clipboard.sqlite` | never |
+| Screenshots | `~/Pictures/Lizard Screenshots` + an index of recognized text | never |
+| Search index | `Application Support/Lizard/knowledge.sqlite` | never |
+| AI chats | `Application Support/Lizard/Chats` | only in backups you make |
+| API keys | one macOS Keychain item | never (not synced, not backed up) |
+| AI requests | Apple Intelligence / MLX on your Mac | only if you enable a cloud AI |
 
-## Developing
+## Troubleshooting
 
-- `AGENTS.md` is the technical guide: architecture, conventions, the extension protocol, decisions and pitfalls.
-- `docs/PLAN.md` is the roadmap.
+- **I can't see Lizard's (or GitHub's) menu-bar icon.** On MacBooks with a notch and a full menu bar, macOS hides the
+  leftmost icons behind the notch.
+  - Lizard gives extension icons priority and hides its own gecko to make room. ⌃Space always works, and Settings ›
+    General brings the gecko back.
+  - Free space with **⌘-drag** (drag icons out of the menu bar) or in System Settings › Menu Bar.
+  - Running the command from the launcher (e.g. *My Pull Requests*) opens its menu at your pointer.
+- **Paste, window moves or "selected text" don't work.** Allow Lizard under System Settings › Privacy & Security ›
+  **Accessibility** (Setup › Permissions has a button for it).
+- **Screenshots are blank or fail.** Allow **Screen Recording** for Lizard in Privacy & Security.
+- **⌃Space switches my keyboard layout.** Turn off *Select the previous input source* in System Settings › Keyboard ›
+  Keyboard Shortcuts › Input Sources, or record another shortcut.
+- **An extension says Node is missing.** `brew install node`.
+- **Translate says a language isn't available.** Download it in System Settings › General › Language & Region ›
+  Translation Languages.
+
+## For developers
 
 ```sh
-cd Packages/LizardKit && swift test                                 # Swift unit tests
-cd Packages/LizardKit/Sources/ExtensionHost/js && npm test           # extension runtime end-to-end tests
-Packages/LizardKit/.build/debug/lizardcli ext run <ext> <command>    # run an extension headless
-open Lizard.app --args --show-launcher "query"                      # open the launcher without a hotkey
-scripts/make-icons.sh                                                # re-render icons from the Swift logo code
+cd Packages/LizardKit && swift test                                  # Swift unit tests
+cd Packages/LizardKit/Sources/ExtensionHost/js && npm test            # extension runtime end-to-end tests
+Packages/LizardKit/.build/debug/lizardcli ext run <ext> <command>     # run an extension headless
+open Lizard.app --args --show-launcher "query"                       # open the launcher without a hotkey
+scripts/make-icons.sh                                                 # re-render icons from the Swift logo code
 ```
 
-The project is a SwiftUI/AppKit app (`App/`) on top of a UI-free Swift package (`Packages/LizardKit`). Much of the
-architecture comes from Cocoon (the same author's app builder): the AI providers, MLX hosting, process runner and
-Keychain handling.
+- The app is a SwiftUI/AppKit shell (`App/`) on top of a UI-free Swift package (`Packages/LizardKit`) with modules for
+  search, notes, clipboard, dev tools, knowledge, screenshots, AI and the extension host.
+- **[AGENTS.md](AGENTS.md)** is the technical guide (architecture, conventions, decisions and pitfalls).
+- **[docs/PLAN.md](docs/PLAN.md)** is the roadmap; **[docs/EXTENSIONS.md](docs/EXTENSIONS.md)** is the extension
+  contract.
+- Much of the foundation (AI providers, MLX hosting, process runner, Keychain handling, GitHub sign-in) comes from
+  Cocoon, the same author's app builder.
 
 ## Roadmap
 
-**Local AI** — ideas that suit a launcher and a small on-device model:
-
-- ~~Semantic search~~ and ~~Ask your notes~~ — done.
-- **Natural-language commands** — "kill whatever is on 3000", "open the PR I was reviewing yesterday", "new note from
-  clipboard". Apple Intelligence classifies the request into a typed Lizard action (guided generation) and shows a
-  confirmation before running it.
-- **Selection actions** — select text in any app, then explain, fix grammar, translate, make concise, or write a reply
-  in place.
-- **AI for extensions** — `AI.ask` already routes to the local model; add `useAI` streaming and a per-extension
-  privacy switch.
-- **Smarter work log** — automatic tags (`AppleIntelligence.workTags`), daily stand-up drafts, weekly reports, and a
-  brag doc that groups work by project and impact.
-- **Clipboard intelligence** — detect JSON, JWTs, stack traces, SQL and URLs and offer the right action (format, decode,
-  explain, open).
-- **Screenshot → text → answer** — OCR with Vision, then explain or translate the text locally.
-- **Commit messages and PR summaries** — from `git diff`, on device, piped into the GitHub extension.
-- **Voice** — push-to-talk dictation into the launcher or the work log using on-device speech recognition.
-- **Snippets with AI fill-in** — templates whose blanks the local model completes from context.
-- **Meeting notes** — paste or record a transcript; get decisions and action items as Reminders.
-
-**Platform**
-
-- Notarized releases (Developer ID, hardened runtime, Sparkle updates, bundled Node).
-- An extension preferences editor, OAuth for extensions, and background no-view intervals.
-- Window management, snippets with text expansion, calculator and unit conversion, emoji picker.
+- **Natural-language commands:** "kill whatever's on 3000", "new note from clipboard". On-device AI turns them into
+  actions and asks before running them.
+- **Selection actions:** select text anywhere, then explain, fix grammar, translate, shorten, or draft a reply in place.
+- **Clipboard intelligence:** detect JSON, JWTs, stack traces and SQL as you copy, and offer the right action.
+- **Snippets with text expansion**, an emoji picker and color tools.
+- **Voice:** push-to-talk dictation into the launcher and the work log.
+- **Commit messages and PR summaries** from `git diff`, on device.
+- **Notarized releases** with automatic updates; OAuth for extensions; an extension preferences editor.
 
 ## License
 
 MIT for Lizard's own code. Raycast and GitHub are trademarks of their owners; Lizard isn't affiliated with either.
-Extensions installed from the Raycast Store keep their own licenses.
+Extensions you install keep their own licenses.
