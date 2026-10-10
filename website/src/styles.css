@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+/* Theme tokens: dark by default (the product is dark), light when the system asks for it. */
+:root {
+  --bg: #0b0f0d;
+  --bg-raised: #111714;
+  --bg-sunken: #070a09;
+  --line: rgb(255 255 255 / 0.08);
+  --line-strong: rgb(255 255 255 / 0.14);
+  --text: #eef2ef;
+  --text-muted: #9aa69f;
+  --text-faint: #69756e;
+  --accent: #3ddc84;
+  --accent-deep: #14b8a6;
+  --accent-ink: #04140b;
+  --shadow: 6 12 9;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f4f6f4;
+    --bg-raised: #ffffff;
+    --bg-sunken: #e9ede9;
+    --line: rgb(10 30 20 / 0.08);
+    --line-strong: rgb(10 30 20 / 0.16);
+    --text: #0e1512;
+    --text-muted: #4d5a53;
+    --text-faint: #7b867f;
+    --accent: #17a35c;
+    --accent-deep: #0f8f81;
+    --accent-ink: #ffffff;
+    --shadow: 20 40 30;
+    color-scheme: light;
+  }
+}
+
+@theme {
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", monospace;
+  --color-bg: var(--bg);
+  --color-raised: var(--bg-raised);
+  --color-sunken: var(--bg-sunken);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-deep: var(--accent-deep);
+  --color-accent-ink: var(--accent-ink);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html { scroll-behavior: smooth; overflow-x: clip; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+::selection { background: color-mix(in oklab, var(--accent) 35%, transparent); }
+
+/* Film grain on a fixed layer only (never on scrolling content). */
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+/* Screens are real captures of the app; they get a device-like edge. */
+.screen {
+  border-radius: 18px;
+  border: 1px solid var(--line-strong);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.06) inset,
+    0 30px 80px -20px rgb(var(--shadow) / 0.55),
+    0 10px 30px -10px rgb(var(--shadow) / 0.35);
+  background: #1b1d1c;
+}
+
+.keycap {
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.08) inset, 0 3px 0 var(--line-strong), 0 10px 24px -12px rgb(var(--shadow) / 0.6);
+}
+
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.marquee-track { animation: marquee 38s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track { animation: none; }
+  html { scroll-behavior: auto; }
+}
