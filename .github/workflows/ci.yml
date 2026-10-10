@@ -28,7 +28,7 @@ jobs:
 
       - name: Extension runtime tests
         working-directory: Packages/LizardKit/Sources/ExtensionHost/js
-        run: npm ci || npm install && npm test
+        run: npm ci && npm test
 
       - name: Validate built-in extensions
         working-directory: Packages/LizardKit

@@ -61,6 +61,16 @@
 
 ## Install
 
+```sh
+brew install --cask vitoraguila/tap/lizard
+brew install node        # for extensions
+```
+
+Releases are signed with a Developer ID and notarized by Apple, and also available as a DMG on the
+[Releases](../../releases) page.
+
+### Build from source
+
 **Requirements:** an Apple Silicon Mac on **macOS 26**. To build: Xcode 26.2, [XcodeGen](https://github.com/yonaskolb/XcodeGen)
 (`brew install xcodegen`), and **Node.js** for extensions (`brew install node`).
 
@@ -366,6 +376,7 @@ scripts/make-icons.sh                                                 # re-rende
 - The app is a SwiftUI/AppKit shell (`App/`) on top of a UI-free Swift package (`Packages/LizardKit`) with modules for
   search, notes, clipboard, dev tools, knowledge, screenshots, AI and the extension host.
 - **[AGENTS.md](AGENTS.md)** is the technical guide (architecture, conventions, decisions and pitfalls).
+- **[docs/RELEASING.md](docs/RELEASING.md)** covers signing, notarization and the Homebrew release pipeline.
 - **[docs/PLAN.md](docs/PLAN.md)** is the roadmap; **[docs/EXTENSIONS.md](docs/EXTENSIONS.md)** is the extension
   contract.
 - Much of the foundation (AI providers, MLX hosting, process runner, Keychain handling, GitHub sign-in) comes from
