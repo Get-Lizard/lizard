@@ -72,9 +72,51 @@ final class FloatingPanelController<Content: View> {
             panel.setFrame(NSRect(origin: origin, size: size), display: false)
         }
         panel.makeKeyAndOrderFront(nil)
+        focusTypingField()
     }
 
-    func hide() { panel.orderOut(nil) }
+    func hide() {
+        lastResponder = panel.firstResponder
+        panel.orderOut(nil)
+    }
+
+    private weak var lastResponder: NSResponder?
+
+    /// Always land ready to type: restore the text field that had focus, else the topmost editable
+    /// field on screen. Retried once after layout, since SwiftUI may still be building the view.
+    func focusTypingField() {
+        for delay in [0.0, 0.08] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                MainActor.assumeIsolated {
+                    guard let self, self.panel.isKeyWindow || self.panel.isVisible else { return }
+                    if let current = self.panel.firstResponder as? NSText, current.isEditable { return }
+                    if let previous = self.lastResponder as? NSView, previous.window === self.panel,
+                        (previous as? NSText)?.isEditable == true || (previous as? NSTextField)?.isEditable == true {
+                        self.panel.makeFirstResponder(previous)
+                        return
+                    }
+                    if let field = Self.topmostEditable(in: self.panel.contentView) { self.panel.makeFirstResponder(field) }
+                }
+            }
+        }
+    }
+
+    private static func topmostEditable(in view: NSView?) -> NSView? {
+        guard let view else { return nil }
+        var candidates: [NSView] = []
+        func walk(_ node: NSView) {
+            if node.isHiddenOrHasHiddenAncestor { return }
+            if let field = node as? NSTextField, field.isEditable { candidates.append(field) }
+            else if let text = node as? NSTextView, text.isEditable { candidates.append(text) }
+            node.subviews.forEach(walk)
+        }
+        walk(view)
+        // Topmost = highest on screen (largest y in window coordinates), then leftmost.
+        return candidates.max { a, b in
+            let fa = a.convert(a.bounds, to: nil), fb = b.convert(b.bounds, to: nil)
+            return fa.maxY == fb.maxY ? fa.minX > fb.minX : fa.maxY < fb.maxY
+        }
+    }
 
     /// Grows/shrinks around the top edge so the search field stays put.
     func resize(to newSize: NSSize, animated: Bool = true) {

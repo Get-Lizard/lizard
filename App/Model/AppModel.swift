@@ -31,6 +31,7 @@ final class AppModel {
     private(set) var knowledge: KnowledgeService!
     private(set) var sync: SyncService!
     private(set) var screenshots: ScreenshotService!
+    @ObservationIgnored private(set) lazy var statusItem = LizardStatusItem(app: self)
 
     @ObservationIgnored private(set) var notes = NotesStore(root: Preferences.notesFolder)
     @ObservationIgnored private(set) var workLog = WorkLogStore(root: Preferences.workLogFolder)

@@ -139,6 +139,11 @@ final class MenuBarCommandController: NSObject, NSMenuDelegate {
         menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
     }
 
+    func recheckVisibility() {
+        warnedHidden = true
+        checkVisibility()
+    }
+
     /// After layout, see whether macOS actually put the item on screen; say so once if not.
     private func checkVisibility() {
         Task {
@@ -148,7 +153,7 @@ final class MenuBarCommandController: NSObject, NSMenuDelegate {
             let hidden = !onScreen
             isHiddenByMenuBar = hidden
             model?.menuBarVisibilityChanged()
-            if hidden, !warnedHidden {
+            if hidden, !warnedHidden, model?.app?.statusItem.isShown != true {
                 warnedHidden = true
                 model?.app?.showHUD("\(command.title) is hidden — your menu bar is full. ⌘-drag icons out, or open it from Lizard.")
             }

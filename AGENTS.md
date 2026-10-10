@@ -291,8 +291,13 @@ Lizard deliberately has **no store**: any GitHub repo folder is an extension sou
   `NSApp.keyWindow == nil`, i.e. focus left Lizard.
 - **Accessory apps can't come forward:** `NSApp.activate()` is ignored without a user click; windows opened behind the
   front app. Use `AppModel.bringToFront` (`activate(ignoringOtherApps:)` + `orderFrontRegardless`).
-- **Status items invisible:** on notched MacBooks with full menu bars, new items sit behind the notch (onscreen = false).
-  This is not a bug in Lizard; the user must free space (⌘-drag items out / System Settings › Menu Bar).
+- **Status items invisible:** on notched MacBooks with full menu bars, macOS hides the *leftmost* items behind the
+  notch, and each new item is added to the left. So Lizard's own icon is a manual `NSStatusItem` (`LizardStatusItem`,
+  not a SwiftUI `MenuBarExtra`) created **after** extension items; if an extension item is still hidden
+  (`window.occlusionState` lacks `.visible`), Lizard hides its own icon once to make room. Saved positions
+  (`NSStatusItem Preferred Position lizard.*`) from older builds are cleared once (`Lizard.StatusItemOrderV2`).
+- **Focus:** when the panel reopens, `FloatingPanelController.focusTypingField()` restores the last text field or picks
+  the topmost editable one (retried after layout) — SwiftUI `.onAppear` focus doesn't fire again on re-show.
 - **Settings scene:** SwiftUI's `Settings` scene can't be opened reliably from AppKit code in an accessory app, so Lizard
   uses its own `NSWindow` (`AppModel.openSettings`).
 - **KeyboardShortcuts:** to show a global shortcut on a menu button use `.globalKeyboardShortcut(.name)`, not `.keyboardShortcut`.

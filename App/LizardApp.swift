@@ -6,37 +6,9 @@ struct LizardApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra {
-            MenuBarMenu()
-                .environment(appDelegate.model)
-        } label: {
-            Image("MenuBarIcon")
-        }
-    }
-}
-
-/// Lizard's own menu-bar menu (extensions' menu-bar commands get their own status items).
-private struct MenuBarMenu: View {
-    @Environment(AppModel.self) private var app
-
-    var body: some View {
-        Button("Open Lizard") { app.toggleLauncher() }
-            .globalKeyboardShortcut(.toggleLauncher)
-        Button("Ask AI") { app.open(.chat(nil)) }
-            .globalKeyboardShortcut(.askAI)
-        Button("Clipboard History") { app.open(.clipboard) }
-            .globalKeyboardShortcut(.clipboard)
-        Button("Work Log") { app.showWorkLog() }
-            .globalKeyboardShortcut(.workLog)
-        Button("New Note") { app.open(.newNote) }
-            .globalKeyboardShortcut(.newNote)
-        Divider()
-        Button("Settings…") { app.openSettings() }
-        .keyboardShortcut(",")
-        Button("Setup…") { app.showSetup() }
-        Divider()
-        Button("Quit Lizard") { NSApp.terminate(nil) }
-            .keyboardShortcut("q")
+        // Lizard's menu-bar icon is an NSStatusItem the app manages (LizardStatusItem), so extension
+        // icons can be placed beside it and it can step aside when the menu bar is full.
+        Settings { EmptyView() }
     }
 }
 

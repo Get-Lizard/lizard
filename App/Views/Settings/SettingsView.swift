@@ -52,6 +52,7 @@ private struct GeneralSettings: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var clipboard = Preferences.clipboardEnabled
     @State private var resume = Preferences.resumeLauncher
+    @State private var menuBarIcon = Preferences.showMenuBarIcon
     @State private var mode = PerformanceMode.current
 
     var body: some View {
@@ -65,6 +66,13 @@ private struct GeneralSettings: View {
                             launchAtLogin = SMAppService.mainApp.status == .enabled
                         }
                     }
+                Toggle("Show Lizard in the menu bar", isOn: $menuBarIcon)
+                    .onChange(of: menuBarIcon) { _, on in
+                        Preferences.showMenuBarIcon = on
+                        app.statusItem.setShown(on)
+                    }
+                Text("Lizard hides its own icon automatically when extension icons (like GitHub) need the room. ⌃Space always opens Lizard.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Toggle("Reopen where I left off", isOn: $resume)
                     .onChange(of: resume) { _, on in Preferences.resumeLauncher = on }
                 Toggle("Keep clipboard history", isOn: $clipboard)

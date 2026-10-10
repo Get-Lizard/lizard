@@ -83,8 +83,12 @@ final class ExtensionsModel {
 
     func start() {
         Task {
+            Self.forgetOldStatusItemPositions()
             await reload()
             startEnabledMenuBars()
+            // Lizard's own icon last: macOS puts newer items to the left, so extension icons stay
+            // nearer the clock and Lizard's gecko is the one that gets crowded out first.
+            app?.statusItem.install()
             // Check GitHub for new versions shortly after launch, then every 6 hours.
             try? await Task.sleep(for: .seconds(60))
             while !Task.isCancelled {
@@ -392,6 +396,23 @@ final class ExtensionsModel {
 
     func menuBarVisibilityChanged() {
         hiddenMenuBars = Set(menuBars.filter { $0.value.isHiddenByMenuBar }.map(\.key))
+        // Make room: Lizard is always reachable with its hotkey, extension icons aren't.
+        if !hiddenMenuBars.isEmpty, app?.statusItem.isShown == true, !UserDefaults.standard.bool(forKey: "Lizard.MadeRoomOnce") {
+            UserDefaults.standard.set(true, forKey: "Lizard.MadeRoomOnce")
+            Preferences.showMenuBarIcon = false
+            app?.statusItem.setShown(false)
+            app?.showHUD("Made room in the menu bar by hiding Lizard's icon — ⌃Space still opens Lizard")
+            for controller in menuBars.values { controller.recheckVisibility() }
+        }
+    }
+
+    /// Earlier builds created items in a different order; let macOS place them fresh once.
+    private static func forgetOldStatusItemPositions() {
+        guard !UserDefaults.standard.bool(forKey: "Lizard.StatusItemOrderV2") else { return }
+        for key in UserDefaults.standard.dictionaryRepresentation().keys where key.hasPrefix("NSStatusItem Preferred Position lizard.") {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        UserDefaults.standard.set(true, forKey: "Lizard.StatusItemOrderV2")
     }
 
     func stopAll() {

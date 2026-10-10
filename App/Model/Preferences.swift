@@ -25,6 +25,12 @@ enum Preferences {
         set { UserDefaults.standard.set(newValue, forKey: "Lizard.ResumeLauncher") }
     }
 
+    /// Show Lizard's own menu-bar icon (it steps aside automatically when extensions need the room).
+    static var showMenuBarIcon: Bool {
+        get { UserDefaults.standard.object(forKey: "Lizard.ShowMenuBarIcon") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "Lizard.ShowMenuBarIcon") }
+    }
+
     static var clipboardEnabled: Bool {
         get { UserDefaults.standard.object(forKey: clipboardEnabledKey) as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: clipboardEnabledKey) }
