@@ -99,6 +99,33 @@ public enum AppleIntelligence {
         return try? await session.respond(to: prompt, generating: ScreenshotLabel.self, options: GenerationOptions(temperature: 0)).content
     }
 
+    // MARK: Note organization
+
+    @Generable(description: "Where a note belongs")
+    public struct NoteOrganization: Sendable {
+        @Guide(description: "The best folder for the note: one of the existing folders when one fits, otherwise a short new folder name (1-2 words, Title Case)")
+        public var folder: String
+        @Guide(description: "1 to 4 short lowercase tags (topic, project, tool, kind)", .maximumCount(4))
+        public var tags: [String]
+    }
+
+    /// Suggests a folder (preferring existing ones) and tags for a note.
+    public static func organizeNote(title: String, text: String, existingFolders: [String], existingTags: [String]) async -> NoteOrganization? {
+        guard isAvailable else { return nil }
+        let session = LanguageModelSession(instructions: """
+            You organize a software engineer's Markdown notes. Prefer an existing folder and existing tags when they fit; \
+            invent new ones only when nothing fits. Keep names short.
+            """)
+        let prompt = """
+            Existing folders: \(existingFolders.isEmpty ? "(none)" : existingFolders.joined(separator: ", "))
+            Existing tags: \(existingTags.isEmpty ? "(none)" : existingTags.prefix(60).joined(separator: ", "))
+            Note title: \(title)
+            Note:
+            \(text.prefix(2_500))
+            """
+        return try? await session.respond(to: prompt, generating: NoteOrganization.self, options: GenerationOptions(temperature: 0)).content
+    }
+
     /// The last failure, for diagnostics (`lizardcli apple-ai`).
     nonisolated(unsafe) public static var lastError: String?
 

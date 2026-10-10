@@ -224,3 +224,41 @@ import Testing
         #expect(moved?.path.contains("/Errors/") == true)
     }
 }
+
+@Suite struct NotesV2Tests {
+    @Test func frontMatterAndInlineTags() {
+        let text = "---\ntags: [deploy, \"k8s\"]\npinned: true\n---\n# Rollout\nUse #helm here.\n```sh\n# not a #tag\nkubectl rollout status\n```\n"
+        let metadata = NoteMetadata.parse(text)
+        #expect(metadata.tags == ["deploy", "k8s", "helm"])
+        #expect(metadata.pinned)
+        #expect(metadata.codeBlocks.first?.code == "# not a #tag\nkubectl rollout status")
+    }
+
+    @Test func snippetDetection() {
+        #expect(NoteMetadata.parse("# Restart docker\n```sh\nsudo killall Docker\n```").snippet == "sudo killall Docker")
+        #expect(NoteMetadata.parse("$ git reset --hard origin/main").snippet == "git reset --hard origin/main")
+        #expect(NoteMetadata.parse("# Ideas\nA long paragraph about things.\nAnother line.\nMore.").snippet == nil)
+    }
+
+    @Test func updatingFrontMatterKeepsBody() {
+        let updated = NoteMetadata.updating("# Title\nBody #inline", tags: ["inline", "work"], pinned: true)
+        #expect(updated.hasPrefix("---\ntags: [work]\npinned: true\n---\n\n# Title"))
+        let unpinned = NoteMetadata.updating(updated, pinned: false)
+        #expect(!unpinned.contains("pinned"))
+    }
+
+    @Test func foldersAndMoves() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "notes-\(UUID())")
+        let store = NotesStore(root: root)
+        let folder = try await store.createFolder("Work Stuff")
+        let note = try await store.create(title: "Deploy", folder: folder)
+        #expect(await store.folder(of: note) == "Work Stuff")
+        let moved = try await store.move(note, toFolder: "Archive")
+        #expect(await store.folder(of: moved) == "Archive")
+        try await store.setTags(["ops"], for: moved)
+        let listed = await store.list()
+        #expect(listed.first?.tags == ["ops"])
+        #expect(await store.folders().contains("Work Stuff"))
+        #expect(await store.search("#ops").count == 1)
+    }
+}

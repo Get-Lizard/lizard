@@ -42,6 +42,8 @@ final class AppModel {
 
     private(set) var indexedApps: [AppEntry] = []
     private(set) var quicklinkList: [Quicklink] = Quicklink.defaults
+    /// Notes that are a command/code snippet: findable from the launcher, ↩ copies.
+    private(set) var snippetNotes: [Note] = []
     /// The app that was in front before Lizard was summoned (paste target, work-log context).
     private(set) var previousApp: NSRunningApplication?
     private(set) var workLogContextApp: String?
@@ -72,6 +74,11 @@ final class AppModel {
         knowledge.scheduleSync(after: 1)
     }
 
+    func refreshSnippets() async {
+        snippetNotes = await notes.list().filter { $0.snippet != nil }
+        launcher.refresh()
+    }
+
     /// Quicklinks were added, edited, restored or synced.
     func quicklinksChanged() {
         Task {
@@ -94,6 +101,10 @@ final class AppModel {
             }
         }
         Task { quicklinkList = await quicklinks.links }
+        Task {
+            await refreshSnippets()
+            for await _ in await notes.changes() { await refreshSnippets() }
+        }
         startClipboard()
         extensions.start()
         accounts.refreshGitHub()
@@ -254,6 +265,17 @@ final class AppModel {
                 accessory: command.mode == .menuBar ? "Menu Bar" : nil) { [weak self] in
                 self?.extensions.launch(installed, command)
                 return command.mode == .view
+            })
+        }
+        for note in snippetNotes {
+            items.append(LauncherItem(id: "snippet:\(note.url.path)", title: note.title, subtitle: note.snippet?.split(separator: "\n").first.map(String.init),
+                icon: .symbol("terminal", Brand.teal), kind: .note, accessory: "Copy",
+                actions: [LauncherAction(title: "Paste Snippet", symbol: "doc.on.clipboard") { [weak self] in
+                    self?.pasteText(note.snippet ?? "")
+                    return false
+                }]) { [weak self] in
+                self?.copyText(note.snippet ?? "")
+                return false
             })
         }
         for link in quicklinkList {
