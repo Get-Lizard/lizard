@@ -64,7 +64,9 @@ targets:
         ENABLE_USER_SCRIPT_SANDBOXING: NO
         # Not sandboxed: CGEvent auto-paste, Accessibility, lsof/kill, Node extension host.
         ENABLE_APP_SANDBOX: NO
-        ENABLE_HARDENED_RUNTIME: NO
+        # Hardened runtime is required for notarization (Developer ID releases, Homebrew).
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_ENTITLEMENTS: App/Lizard.entitlements
         # A stable identity keeps Keychain "Always Allow" and the Accessibility grant across rebuilds.
         # Without this certificate, build with CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= on the command line.
         CODE_SIGN_IDENTITY: "Apple Development"

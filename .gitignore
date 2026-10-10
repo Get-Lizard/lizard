@@ -8,3 +8,4 @@ Packages/LizardKit/Sources/ExtensionHost/js/dist/
 *.xcuserstate
 Packages/LizardKit/Sources/ExtensionHost/js/node_modules/
 Extensions/*/node_modules/
+build/

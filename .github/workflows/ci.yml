@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26.2
+        run: sudo xcode-select -s /Applications/Xcode_26.2.app || xcodebuild -version
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Swift package tests
+        working-directory: Packages/LizardKit
+        run: swift test
+
+      - name: Extension runtime tests
+        working-directory: Packages/LizardKit/Sources/ExtensionHost/js
+        run: npm ci || npm install && npm test
+
+      - name: Validate built-in extensions
+        working-directory: Packages/LizardKit
+        run: |
+          swift build --product lizardcli
+          for ext in ../../Extensions/*/; do .build/debug/lizardcli ext validate "$ext"; done
+
+      - name: Build the app (unsigned)
+        run: |
+          brew install xcodegen
+          xcodebuild -downloadComponent MetalToolchain
+          xcodegen generate
+          xcodebuild -project Lizard.xcodeproj -scheme Lizard -configuration Release \
+            -derivedDataPath build/ci -destination 'platform=macOS,arch=arm64' -skipMacroValidation -quiet \
+            CODE_SIGNING_ALLOWED=NO build

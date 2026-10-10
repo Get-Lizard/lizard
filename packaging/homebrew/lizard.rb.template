@@ -1,0 +1,33 @@
+cask "lizard" do
+  version "__VERSION__"
+  sha256 "__SHA256__"
+
+  url "https://github.com/__REPO__/releases/download/v#{version}/Lizard-#{version}.dmg"
+  name "Lizard"
+  desc "Fast, private launcher with local AI and Raycast-compatible extensions"
+  homepage "https://github.com/__REPO__"
+
+  livecheck do
+    url :url
+    strategy :github_latest
+  end
+
+  depends_on arch: :arm64
+  depends_on macos: ">= :tahoe"
+
+  app "Lizard.app"
+
+  uninstall quit: "io.lizard.app"
+
+  zap trash: [
+    "~/Library/Application Support/Lizard",
+    "~/Library/Caches/Lizard",
+    "~/Library/Preferences/io.lizard.app.plist",
+    "~/.lizard",
+  ]
+
+  caveats <<~EOS
+    Lizard runs Raycast-compatible extensions with Node.js: brew install node
+    Open Lizard with ⌃Space. Notes, work logs and screenshots you created are kept on uninstall.
+  EOS
+end
