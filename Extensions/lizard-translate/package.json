@@ -1,0 +1,77 @@
+{
+  "name": "lizard-translate",
+  "title": "Translate",
+  "description": "Translate text between languages with Google's free web translator.",
+  "icon": "icon.png",
+  "author": "lizard",
+  "license": "MIT",
+  "categories": [
+    "Productivity"
+  ],
+  "commands": [
+    {
+      "name": "translate",
+      "title": "Translate Text",
+      "description": "Type to translate",
+      "mode": "view"
+    },
+    {
+      "name": "translate-selection",
+      "title": "Translate Selection",
+      "description": "Translate the selected text and copy it",
+      "mode": "no-view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "target",
+      "title": "Translate To",
+      "type": "dropdown",
+      "default": "en",
+      "required": false,
+      "description": "Default target language",
+      "data": [
+        {
+          "title": "English",
+          "value": "en"
+        },
+        {
+          "title": "Portuguese",
+          "value": "pt"
+        },
+        {
+          "title": "Spanish",
+          "value": "es"
+        },
+        {
+          "title": "French",
+          "value": "fr"
+        },
+        {
+          "title": "German",
+          "value": "de"
+        },
+        {
+          "title": "Italian",
+          "value": "it"
+        },
+        {
+          "title": "Dutch",
+          "value": "nl"
+        },
+        {
+          "title": "Japanese",
+          "value": "ja"
+        },
+        {
+          "title": "Chinese (Simplified)",
+          "value": "zh-CN"
+        },
+        {
+          "title": "Korean",
+          "value": "ko"
+        }
+      ]
+    }
+  ]
+}

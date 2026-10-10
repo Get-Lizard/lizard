@@ -1,0 +1,72 @@
+name: Lizard
+options:
+  bundleIdPrefix: io.lizard
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+packages:
+  LizardKit:
+    path: Packages/LizardKit
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: 2.3.0
+  MarkdownUI:
+    url: https://github.com/gonzalezreal/swift-markdown-ui
+    from: 2.4.0
+targets:
+  Lizard:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+        excludes:
+          - "Info.plist"
+      # Lizard's own Raycast-format extensions, installed from Settings › Extensions.
+      - path: Extensions
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - package: LizardKit
+        products: [LizardCore, Search, Notes, Clipboard, DevTools, AIEngine, AIEngineMLX, ExtensionHost]
+      - package: KeyboardShortcuts
+      - package: MarkdownUI
+    postBuildScripts:
+      # The @raycast/api shim (TypeScript) is built by npm and copied into the app bundle.
+      - name: Bundle extension shim
+        basedOnDependencyAnalysis: false
+        script: |
+          set -e
+          SHIM="$SRCROOT/Packages/LizardKit/Sources/ExtensionHost/js"
+          DEST="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/ExtensionShim"
+          export PATH="$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -1)/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+          if [ -f "$SHIM/package.json" ] && command -v npm >/dev/null; then
+            ( cd "$SHIM" && { [ -d node_modules ] || npm install --silent; } && npm run --silent build )
+            rm -rf "$DEST" && mkdir -p "$DEST" && cp -R "$SHIM/dist/." "$DEST/"
+          else
+            echo "warning: extension shim not built (npm missing)"
+          fi
+    scheme: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.lizard.app
+        PRODUCT_NAME: Lizard
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: App/Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: Lizard
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+        INFOPLIST_KEY_LSUIElement: YES
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        # Not sandboxed: CGEvent auto-paste, Accessibility, lsof/kill, Node extension host.
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: NO
+        # A stable identity keeps Keychain "Always Allow" and the Accessibility grant across rebuilds.
+        # Without this certificate, build with CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= on the command line.
+        CODE_SIGN_IDENTITY: "Apple Development"
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: "6H728M7XQK"

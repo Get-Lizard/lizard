@@ -1,0 +1,10 @@
+.DS_Store
+*.xcodeproj
+DerivedData/
+.build/
+.swiftpm/
+node_modules/
+Packages/LizardKit/Sources/ExtensionHost/js/dist/
+*.xcuserstate
+Packages/LizardKit/Sources/ExtensionHost/js/node_modules/
+Extensions/*/node_modules/

@@ -1,0 +1,19 @@
+{
+  "name": "lizard-1password",
+  "title": "1Password",
+  "description": "Search 1Password and copy secrets with the 1Password CLI (Touch ID, no keys).",
+  "icon": "icon.png",
+  "author": "lizard",
+  "license": "MIT",
+  "categories": [
+    "Productivity"
+  ],
+  "commands": [
+    {
+      "name": "search",
+      "title": "Search 1Password",
+      "description": "Find items and copy usernames, passwords and codes",
+      "mode": "view"
+    }
+  ]
+}

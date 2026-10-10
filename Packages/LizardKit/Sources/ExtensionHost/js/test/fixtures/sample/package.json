@@ -1,0 +1,15 @@
+{
+  "name": "sample",
+  "title": "Sample",
+  "description": "Fixture extension for the shim tests",
+  "icon": "icon.png",
+  "author": "lizard",
+  "license": "MIT",
+  "commands": [
+    { "name": "list", "title": "Sample List", "mode": "view" },
+    { "name": "form", "title": "Sample Form", "mode": "view" },
+    { "name": "menu", "title": "Sample Menu", "mode": "menu-bar", "interval": "5m" },
+    { "name": "quick", "title": "Sample No-View", "mode": "no-view" }
+  ],
+  "preferences": [{ "name": "greeting", "type": "textfield", "title": "Greeting", "default": "hi", "required": false, "description": "" }]
+}

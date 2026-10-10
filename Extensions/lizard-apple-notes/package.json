@@ -1,0 +1,25 @@
+{
+  "name": "lizard-apple-notes",
+  "title": "Apple Notes",
+  "description": "Search and create notes in Apple Notes.",
+  "icon": "icon.png",
+  "author": "lizard",
+  "license": "MIT",
+  "categories": [
+    "Productivity"
+  ],
+  "commands": [
+    {
+      "name": "search-notes",
+      "title": "Search Apple Notes",
+      "description": "Find a note and read it",
+      "mode": "view"
+    },
+    {
+      "name": "new-note",
+      "title": "New Apple Note",
+      "description": "Write a quick note",
+      "mode": "view"
+    }
+  ]
+}

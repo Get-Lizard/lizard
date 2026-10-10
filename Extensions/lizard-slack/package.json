@@ -1,0 +1,25 @@
+{
+  "name": "lizard-slack",
+  "title": "Slack",
+  "description": "Jump straight to your favourite Slack channels and people.",
+  "icon": "icon.png",
+  "author": "lizard",
+  "license": "MIT",
+  "categories": [
+    "Productivity"
+  ],
+  "commands": [
+    {
+      "name": "open-favorite",
+      "title": "Open Slack Channel or Person",
+      "description": "Favourites opened in the Slack app",
+      "mode": "view"
+    },
+    {
+      "name": "open-slack",
+      "title": "Open Slack",
+      "description": "Bring Slack to the front",
+      "mode": "no-view"
+    }
+  ]
+}

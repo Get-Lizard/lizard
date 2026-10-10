@@ -1,0 +1,19 @@
+{
+  "name": "lizard-kill-process",
+  "title": "Kill Process",
+  "description": "Find runaway processes and stop them.",
+  "icon": "icon.png",
+  "author": "lizard",
+  "license": "MIT",
+  "categories": [
+    "Productivity"
+  ],
+  "commands": [
+    {
+      "name": "kill-process",
+      "title": "Kill Process",
+      "description": "Processes sorted by CPU",
+      "mode": "view"
+    }
+  ]
+}

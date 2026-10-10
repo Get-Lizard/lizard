@@ -1,0 +1,132 @@
+import Foundation
+import FoundationModels
+
+/// Apple's on-device model (Foundation Models, macOS 26): nothing to download, instant, and
+/// **guided generation** (`@Generable`) so answers always match a Swift type.
+///
+/// ~3B parameters and a ~4k-token context: use it for short structured jobs (intent triage,
+/// work-log tags, one-line summaries) and fall back to MLX when it's unavailable (`isAvailable`).
+public enum AppleIntelligence {
+    /// On when this Mac has Apple Intelligence enabled and the model is ready.
+    public static var isAvailable: Bool {
+        if case .available = SystemLanguageModel.default.availability { return true }
+        return false
+    }
+
+    /// Why it's off, in plain words (nil when available).
+    public static var unavailableReason: String? {
+        switch SystemLanguageModel.default.availability {
+        case .available: nil
+        case .unavailable(.deviceNotEligible): "This Mac doesn't support Apple Intelligence."
+        case .unavailable(.appleIntelligenceNotEnabled): "Apple Intelligence is turned off in System Settings."
+        case .unavailable(.modelNotReady): "Apple Intelligence is still downloading its model."
+        case .unavailable: "Apple Intelligence isn't available right now."
+        }
+    }
+
+    // MARK: Launcher intent triage
+
+    @Generable
+    public enum LauncherIntent: String, Sendable {
+        case openApp, quicklink, note, workLog, clipboard, ask, devTool
+    }
+
+    @Generable(description: "What the person typed into a Mac launcher wants to do")
+    public struct Triage: Sendable {
+        @Guide(description: "The most likely intent")
+        public var intent: LauncherIntent
+        @Guide(description: "true only when the text reads like a question or instruction for an AI, not a name to search")
+        public var looksLikeQuestion: Bool
+    }
+
+    /// Classifies free text typed into the launcher (nil when unavailable or on failure).
+    public static func triage(_ text: String) async -> Triage? {
+        guard isAvailable else { return nil }
+        let session = LanguageModelSession(instructions: """
+            You classify short text typed into a Mac launcher. Names of apps or files are openApp. \
+            "search github for x" style requests are quicklink. Jotting a thought is note; logging finished work is workLog. \
+            Questions, explanations, rewrites and summaries are ask. JSON, JWT, base64, ports are devTool.
+            """)
+        do {
+            return try await session.respond(to: text, generating: Triage.self, options: GenerationOptions(temperature: 0)).content
+        } catch {
+            lastError = "\(error)"
+            return nil
+        }
+    }
+
+    // MARK: Work log tags
+
+    @Generable
+    public struct WorkTags: Sendable {
+        @Guide(description: "1 to 3 short lowercase tags such as bugfix, review, meeting, feature, docs, infra", .maximumCount(3))
+        public var tags: [String]
+    }
+
+    public static func workTags(for entry: String) async -> [String] {
+        guard isAvailable else { return [] }
+        let session = LanguageModelSession(instructions: "You tag a software engineer's work-log entries.")
+        let result = try? await session.respond(to: entry, generating: WorkTags.self, options: GenerationOptions(temperature: 0)).content
+        return result?.tags.map { $0.lowercased().replacingOccurrences(of: " ", with: "-") } ?? []
+    }
+
+    /// The last failure, for diagnostics (`lizardcli apple-ai`).
+    nonisolated(unsafe) public static var lastError: String?
+
+    /// Loads the model ahead of time so the first answer is instant (call when the panel opens).
+    public static func prewarm() {
+        guard isAvailable else { return }
+        LanguageModelSession().prewarm()
+    }
+}
+
+/// Apple's on-device model as a plain streaming chat provider, so chat and jobs can treat it
+/// like any other `AIProvider`. Tools are not supported; history is folded into the prompt.
+public struct AppleFMProvider: AIProvider {
+    public init() {}
+
+    public var id: String { "apple" }
+    public var displayName: String { "Apple Intelligence" }
+    public var contextTokens: Int { 3_000 }
+
+    public func stream(_ request: ChatRequest) -> AsyncThrowingStream<ChatEvent, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                guard AppleIntelligence.isAvailable else {
+                    continuation.finish(throwing: AIProviderError.unavailable(AppleIntelligence.unavailableReason ?? "Apple Intelligence is unavailable."))
+                    return
+                }
+                let session = LanguageModelSession(instructions: request.system)
+                let prompt = Self.prompt(from: request.messages)
+                do {
+                    var sent = ""
+                    for try await snapshot in session.streamResponse(to: prompt, options: GenerationOptions(maximumResponseTokens: min(request.maxTokens, 2_000))) {
+                        let text = snapshot.content
+                        if text.hasPrefix(sent) {
+                            let delta = String(text.dropFirst(sent.count))
+                            if !delta.isEmpty { continuation.yield(.textDelta(delta)) }
+                        } else {
+                            continuation.yield(.textDelta(text))
+                        }
+                        sent = text
+                    }
+                    continuation.yield(.completed(.endTurn, providerContent: nil))
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    /// Earlier turns as a compact transcript, newest last; keeps within the small context.
+    static func prompt(from messages: [ChatMessage]) -> String {
+        guard let last = messages.last else { return "" }
+        let history = messages.dropLast().suffix(6).map { message in
+            "\(message.role == .user ? "User" : "Assistant"): \(message.text.prefix(1_200))"
+        }
+        if history.isEmpty { return last.text }
+        return "Conversation so far:\n" + history.joined(separator: "\n") + "\n\nUser: " + last.text
+    }
+}

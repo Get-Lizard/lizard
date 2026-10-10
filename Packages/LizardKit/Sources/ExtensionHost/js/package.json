@@ -1,0 +1,17 @@
+{
+  "name": "lizard-extension-shim",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Runs Raycast-compatible extensions inside Lizard: @raycast/api and @raycast/utils implemented on a custom React renderer that streams view trees to the native app.",
+  "license": "MIT",
+  "main": "dist/host.js",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "esbuild": "^0.25.0",
+    "react": "18.3.1",
+    "react-reconciler": "0.29.2"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "lizard-warp",
+  "title": "Warp",
+  "description": "Open Warp where you are, or one of your launch configurations.",
+  "icon": "icon.png",
+  "author": "lizard",
+  "license": "MIT",
+  "categories": [
+    "Productivity"
+  ],
+  "commands": [
+    {
+      "name": "open-here",
+      "title": "Open Warp Here",
+      "description": "New Warp tab at the front Finder folder",
+      "mode": "no-view"
+    },
+    {
+      "name": "new-window",
+      "title": "New Warp Window",
+      "description": "New Warp window in your home folder",
+      "mode": "no-view"
+    },
+    {
+      "name": "launch-configurations",
+      "title": "Warp Launch Configurations",
+      "description": "Open a saved launch configuration",
+      "mode": "view"
+    }
+  ]
+}

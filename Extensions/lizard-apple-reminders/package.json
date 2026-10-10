@@ -1,0 +1,32 @@
+{
+  "name": "lizard-apple-reminders",
+  "title": "Apple Reminders",
+  "description": "See, complete and add reminders.",
+  "icon": "icon.png",
+  "author": "lizard",
+  "license": "MIT",
+  "categories": [
+    "Productivity"
+  ],
+  "commands": [
+    {
+      "name": "show-reminders",
+      "title": "Show Reminders",
+      "description": "Open reminders grouped by list",
+      "mode": "view"
+    },
+    {
+      "name": "quick-reminder",
+      "title": "Quick Reminder",
+      "description": "Add a reminder",
+      "mode": "view"
+    },
+    {
+      "name": "due-today",
+      "title": "Reminders Due Today",
+      "description": "Count of today's reminders in the menu bar",
+      "mode": "menu-bar",
+      "interval": "10m"
+    }
+  ]
+}
