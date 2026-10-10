@@ -205,8 +205,12 @@ final class AppModel {
         rememberFrontApp()
         let controller = ensureLauncherPanel()
         launcher.summoned()
-        controller.show()
+        controller.show(size: launcher.panelSize)
         ai.prewarm()
+    }
+
+    func resizeLauncher(to size: CGSize) {
+        launcherPanel?.resize(to: size)
     }
 
     func hideLauncher() {

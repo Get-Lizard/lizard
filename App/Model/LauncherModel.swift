@@ -51,6 +51,16 @@ final class LauncherModel {
 
     var route: Route { stack.last ?? .search }
 
+    /// Roomy screens (notes, screenshots…) get a bigger panel; search stays compact.
+    var isWorkspace: Bool {
+        switch route {
+        case .notes, .screenshots, .knowledge, .clipboard, .processes, .ports, .devTools, .translate: true
+        default: false
+        }
+    }
+
+    var panelSize: CGSize { isWorkspace ? Metrics.workspaceSize : Metrics.launcherSize }
+
     @ObservationIgnored weak var app: AppModel?
     @ObservationIgnored private var apps: [AppEntry] = []
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
@@ -135,7 +145,7 @@ final class LauncherModel {
                 .sorted { app.frecency.boost(for: $0.id) > app.frecency.boost(for: $1.id) }
             if !used.isEmpty { sections.append(Section(title: "Recent", items: Array(used.prefix(6)))) }
             let usedIDs = Set(used.prefix(6).map(\.id))
-            sections.append(Section(title: "Commands", items: sources.filter { $0.kind == .command && !usedIDs.contains($0.id) }))
+            sections.append(Section(title: "Commands", items: sources.filter { $0.kind == .command && !usedIDs.contains($0.id) && !$0.id.hasPrefix("window:") }))
             let extensionCommands = sources.filter { $0.kind == .extensionCommand && !usedIDs.contains($0.id) }
             if !extensionCommands.isEmpty { sections.append(Section(title: "Extensions", items: extensionCommands)) }
         } else {

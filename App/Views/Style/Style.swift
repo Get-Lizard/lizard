@@ -3,6 +3,7 @@ import SwiftUI
 /// Shared surfaces and metrics (Cocoon's MagicStyle, adapted to the launcher's glass look).
 enum Metrics {
     static let launcherSize = CGSize(width: 760, height: 480)
+    static let workspaceSize = CGSize(width: 980, height: 620)
     static let corner: CGFloat = 18
     static let rowHeight: CGFloat = 40
 }

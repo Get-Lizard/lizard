@@ -25,7 +25,12 @@ Press **⌃Space** anywhere and start typing.
 | **Quicklinks** | URL templates with `{query}`, `{clipboard}` and `{selection}`. Type `gh lizard` to search GitHub, `so swift actors` for Stack Overflow, or `code ~/projects/x` to open a folder in VS Code. |
 | **Ask AI** | Press **Tab** in the launcher (or **⌥⇧A**) to chat. Answers render as Markdown with code blocks; you can stop a reply mid-stream, and chats are saved. |
 | **AI actions** | Summarize or explain your clipboard, summarize today's or this week's work log, or write a **brag document** from the last 90 days of work. |
-| **Notes** | Plain Markdown files in `~/Documents/Notes`, with live syntax highlighting and search. Edits made in other editors show up too. |
+| **Notes** | Plain Markdown files in `~/Documents/Notes` with folders, `#tags`, pins and live highlighting. **Read mode** puts a copy button on every code block, and a note that's just a command becomes a **snippet**: findable from the launcher, ↩ copies it. The on-device AI suggests a folder and tags. |
+| **Search by meaning** | Search notes, work log, clipboard, chats and screenshots by meaning: “that redis timeout thing” finds the note even if those words never appear in it. **Ask Your Notes** answers from them, citing sources. Everything runs on your Mac. |
+| **Screenshots** | **⌃⇧S** captures an area. Lizard reads the text (on-device OCR), names and categorizes the image with on-device AI, files it in `Pictures/Lizard Screenshots/<Category>/<Month>/` and copies it. Browse by category and search the text inside your screenshots. |
+| **Calculator** | Type math right into the launcher: `15% of 80`, `2^10`, `sqrt(16)+2pi`, `5 km in mi`, `100 f to c`, `2 gb in mb`. |
+| **Window management** | **⌃⌥ + arrows** for halves, **⌃⌥↩** to maximize, **⌃⌥C** to center, plus quarters, thirds, next display and restore from the launcher. |
+| **Translate** | On-device translation with Apple's Translation framework (private, works offline). Google is an optional fallback. |
 | **Work Log** | Press **⌥⇧W**, type what you just finished and press ↩. The entry is stamped with the time and the app you were in, and saved to `~/Documents/WorkLogs/2026-10.md`. |
 | **Clipboard history** | Press **⌥⇧V**. Search everything you copied (text, links, files, images); ↩ pastes it into the app you were in. You can pin items. Passwords from password managers are never stored. |
 | **Developer tools** | JSON format/minify, JWT decode, Base64, URL encoding, hashes, timestamps, case conversion. **Listening Ports** shows who's on :3000 and lets you stop it. **Kill Process** sorts processes by CPU or memory. |
@@ -81,8 +86,15 @@ Lizard runs extensions written for Raycast. Each command runs in its own Node.js
 implementation of the public `@raycast/api` and `@raycast/utils`. The extension's React UI is sent to the app as a view
 tree and drawn with native SwiftUI views.
 
-- **Install** from Settings › Extensions: type a Raycast Store name (e.g. `google-translate`) or a folder path.
-  Lizard downloads only that extension's folder, pinned to a commit, installs its dependencies and builds it.
+- **No store, no gatekeeping.** Install any extension from GitHub: paste `github.com/owner/repo` (or
+  `owner/repo/path@tag`) in Settings › Extensions. Lizard downloads only that folder, pinned to a commit, builds it,
+  and **checks for new versions** every few hours. A bare name like `google-translate` installs from Raycast's
+  public repo.
+- **Build your own** with `lizardcli ext new my-extension`, following [docs/EXTENSIONS.md](docs/EXTENSIONS.md)
+  (written for people and AI agents). `lizardcli ext validate` checks your extension against the guidelines.
+- **Share** an extension with a friend as a `.lizardext` file. It contains the code only, none of your data.
+- Anything not made by Lizard is labelled **External**, and Lizard asks before installing it. External extensions
+  aren't reviewed and run with your permissions.
 - **Menu-bar commands** become real menu-bar items and refresh on their schedule.
 - **Built-in extensions** are written from scratch for Lizard. Nothing is copied from the Raycast repository.
 
@@ -104,6 +116,15 @@ default. Lizard signs it in through the **GitHub CLI**:
   shown in Lizard and already on your clipboard. Approve in the browser and you're done; no token is created by hand.
 
 Extension sign-in through OAuth (`OAuth.PKCEClient`) isn't supported yet.
+
+## Your data, everywhere
+
+- **iCloud sync** (Settings › Sync & Backup) uses your Apple ID through iCloud Drive. Your quicklinks, settings, shortcuts
+  and extension list follow you to every Mac with Lizard, and notes and the work log can live in iCloud Drive › Lizard.
+- **Backups:** a `.lizardbackup` file holds everything — extensions with their data, quicklinks, settings, and
+  optionally notes and chats.
+- **Coming from Raycast:** setup finds your installed Raycast extensions and imports them (they run as they are).
+  Quicklinks come over through Raycast's *Export Quicklinks* file.
 
 ## Privacy
 
@@ -135,9 +156,7 @@ Keychain handling.
 
 **Local AI** — ideas that suit a launcher and a small on-device model:
 
-- **Semantic search everywhere** — on-device embeddings for notes, work log, clipboard and chats, so "that redis timeout
-  thing" finds the note even without matching words. Store vectors in SQLite next to the FTS index.
-- **Ask your notes** — retrieval-augmented answers that cite the notes and log entries they came from.
+- ~~Semantic search~~ and ~~Ask your notes~~ — done.
 - **Natural-language commands** — "kill whatever is on 3000", "open the PR I was reviewing yesterday", "new note from
   clipboard". Apple Intelligence classifies the request into a typed Lizard action (guided generation) and shows a
   confirmation before running it.

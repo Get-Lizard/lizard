@@ -46,13 +46,14 @@ final class LauncherPanel: NSPanel {
 @MainActor
 final class FloatingPanelController<Content: View> {
     let panel: LauncherPanel
-    private let size: NSSize
+    private var size: NSSize
 
     init(size: NSSize, hidesOnResign: Bool = true, @ViewBuilder content: () -> Content) {
         self.size = size
         panel = LauncherPanel(contentRect: NSRect(origin: .zero, size: size))
         let host = NSHostingView(rootView: content())
         host.sizingOptions = []
+        host.autoresizingMask = [.width, .height]
         panel.contentView = host
         if hidesOnResign {
             panel.onResignKey = { [weak panel] in panel?.orderOut(nil) }
@@ -61,14 +62,32 @@ final class FloatingPanelController<Content: View> {
 
     var isVisible: Bool { panel.isVisible }
 
-    func show() {
+    func show(size requested: NSSize? = nil) {
+        if let requested { size = requested }
         let screen = NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) } ?? NSScreen.main
         if let frame = screen?.visibleFrame {
-            let origin = NSPoint(x: frame.midX - size.width / 2, y: frame.minY + frame.height * 0.68 - size.height / 2)
+            // The top edge sits at the same place whatever the size, so the search field never jumps.
+            let top = frame.minY + frame.height * 0.68 + Metrics.launcherSize.height / 2
+            let origin = NSPoint(x: frame.midX - size.width / 2, y: max(frame.minY, top - size.height))
             panel.setFrame(NSRect(origin: origin, size: size), display: false)
         }
         panel.makeKeyAndOrderFront(nil)
     }
 
     func hide() { panel.orderOut(nil) }
+
+    /// Grows/shrinks around the top edge so the search field stays put.
+    func resize(to newSize: NSSize, animated: Bool = true) {
+        var frame = panel.frame
+        guard frame.size != newSize else { return }
+        let top = frame.maxY
+        frame.origin.x = frame.midX - newSize.width / 2
+        frame.size = newSize
+        frame.origin.y = top - newSize.height
+        if let visible = panel.screen?.visibleFrame {
+            frame.origin.x = min(max(frame.origin.x, visible.minX), visible.maxX - newSize.width)
+            frame.origin.y = max(frame.origin.y, visible.minY)
+        }
+        panel.setFrame(frame, display: true, animate: animated)
+    }
 }
