@@ -263,6 +263,27 @@ Lizard deliberately has **no store**: any GitHub repo folder is an extension sou
 - `.lizardbackup` (zip): snapshot.json, per-extension preferences (password preferences excluded) + support data,
   packages that can't be re-downloaded, optional notes/work log/chats. Keychain secrets and clipboard never leave.
 
+## 5e. Notes v2, screenshots, calculator, windows, translate, look
+
+- **Notes** (`Notes/NoteMetadata.swift`): optional front matter (`tags: [a, b]`, `pinned: true`, Obsidian-compatible)
+  plus inline `#tags` outside code. A **snippet** = one code block with ≤2 prose lines, or a single `$ cmd` line;
+  snippet notes appear in root search (↩ copies). Folders are real subfolders. Read mode uses MarkdownUI with
+  `.markdownBlockStyle(\.codeBlock)` → `CopyableCodeBlock`. AI organize = `AppleIntelligence.organizeNote`.
+- **Screenshots** (`Screenshots` module + `ScreenshotService`): macOS's own `screencapture -i` UI (needs Screen
+  Recording permission; Esc = no file = cancelled), Vision OCR, `AppleIntelligence.labelScreenshot` else
+  `ScreenshotLabel.heuristic`, filed at `~/Pictures/Lizard Screenshots/<Category>/<yyyy-MM>/…png`, index in
+  `Application Support/Lizard/screenshots.json`, OCR text indexed by Knowledge (`.screenshot` source).
+- **Calculator** (`DevTools/Calculator.swift`): own recursive-descent parser (never `NSExpression`, it raises on bad
+  input); calculator mode only when an operator/function/`of` is present; units via table.
+- **Window management** (`WindowManager.swift`): AX position/size (top-left origin vs AppKit bottom-left — convert
+  with the primary screen height); set size → position → size because apps clamp. Global ⌃⌥ shortcuts act on the
+  frontmost app; launcher commands act on `previousApp`.
+- **Translate** (`TranslateView`): Apple Translation via `.translationTask` (Swift 6 needs
+  `nonisolated(unsafe) let session` inside the closure); `NLLanguageRecognizer` for source; Google only on request.
+- **Look:** `BioluminescentRim` (rotating angular-gradient edge, flares on summon), `DenHeader` home (greeting + tiles,
+  ⌘1–⌘8), gliding selection via `matchedGeometryEffect`, gecko wags while typing, and the panel resizes to
+  `Metrics.workspaceSize` for roomy routes (`LauncherModel.isWorkspace`) keeping its top edge fixed.
+
 ## 6. Known pitfalls (each of these happened)
 
 - **NSPanel typing:** the non-activating panel must override `canBecomeKey` → `true`.
@@ -291,6 +312,7 @@ Lizard deliberately has **no store**: any GitHub repo folder is an extension sou
 - The user may be using the app while you test: relaunching it (`pkill` + `open --args …`) interrupts them, and a
   debug launch with `-Lizard.NotesFolder …` points *their* session at test data. Prefer unit tests and the CLI.
 - `open` right after `pkill` fails with LSOpen error -600 while the old process exits; wait with `pgrep` first.
+- `screencapture` output is black when the Mac's screen is locked/asleep — not a rendering bug.
 - Spawned helper agents in this project produced nothing for 20+ minutes and had to be stopped; check their output
   early rather than waiting on them.
 
