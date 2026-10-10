@@ -210,6 +210,11 @@ final class AppModel {
         ai.prewarm()
     }
 
+    /// After navigation inside the panel, focus the new screen's text field.
+    func focusLauncherField() {
+        launcherPanel?.focusTypingField(newScreen: true)
+    }
+
     func resizeLauncher(to size: CGSize) {
         launcherPanel?.resize(to: size)
     }

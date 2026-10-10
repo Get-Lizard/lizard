@@ -227,7 +227,8 @@ struct NotesView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 } else {
-                    MarkdownEditor(text: $text).onChange(of: text) { scheduleSave() }
+                    LiveMarkdownEditor(text: $text) { code in app.copyText(code) }
+                        .onChange(of: text) { scheduleSave() }
                 }
             }
         } else {

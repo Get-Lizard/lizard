@@ -42,6 +42,7 @@ struct LauncherRootView: View {
         .launcherGlass()
         .overlay { BioluminescentRim(pulse: launcher.summonCount) }
         .onChange(of: launcher.panelSize) { _, size in app.resizeLauncher(to: size) }
+        .onChange(of: launcher.navigationCount) { app.focusLauncherField() }
         .onKeyPress(.escape) {
             launcher.escape()
             return .handled

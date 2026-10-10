@@ -80,7 +80,13 @@ final class LauncherModel {
 
     // MARK: Navigation
 
-    func push(_ route: Route) { stack.append(route) }
+    /// Bumped on every navigation, so the panel can move focus to the new screen's text field.
+    private(set) var navigationCount = 0
+
+    func push(_ route: Route) {
+        stack.append(route)
+        navigationCount += 1
+    }
 
     /// Whether an extension session is still on the stack (it keeps running while pushed under).
     func isShowing(_ session: ExtensionSession) -> Bool {
@@ -89,6 +95,7 @@ final class LauncherModel {
 
     func pop() {
         if !stack.isEmpty { stack.removeLast() }
+        navigationCount += 1
     }
 
     /// Esc: pop a level, clear the query, then hide.
@@ -105,6 +112,7 @@ final class LauncherModel {
     func resetToRoot() {
         stack.removeAll()
         query = ""
+        navigationCount += 1
     }
 
     func move(_ delta: Int) {

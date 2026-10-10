@@ -84,12 +84,19 @@ final class FloatingPanelController<Content: View> {
 
     /// Always land ready to type: restore the text field that had focus, else the topmost editable
     /// field on screen. Retried once after layout, since SwiftUI may still be building the view.
-    func focusTypingField() {
-        for delay in [0.0, 0.08] {
+    /// - Parameter newScreen: after navigating (Esc back to search, opening a view) always pick the
+    ///   new screen's topmost field instead of keeping the old responder.
+    func focusTypingField(newScreen: Bool = false) {
+        if newScreen { lastResponder = nil }
+        for delay in newScreen ? [0.03, 0.12, 0.3] : [0.0, 0.08] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
                 MainActor.assumeIsolated {
-                    guard let self, self.panel.isKeyWindow || self.panel.isVisible else { return }
-                    if let current = self.panel.firstResponder as? NSText, current.isEditable { return }
+                    guard let self, self.panel.isVisible else { return }
+                    // Keep a field that's focused and still on screen.
+                    if let current = self.panel.firstResponder as? NSView, current.window === self.panel, !current.isHiddenOrHasHiddenAncestor,
+                        (current as? NSText)?.isEditable == true {
+                        if !newScreen || delay > 0.03 { return }
+                    }
                     if let previous = self.lastResponder as? NSView, previous.window === self.panel,
                         (previous as? NSText)?.isEditable == true || (previous as? NSTextField)?.isEditable == true {
                         self.panel.makeFirstResponder(previous)

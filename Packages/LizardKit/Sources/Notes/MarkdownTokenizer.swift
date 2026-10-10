@@ -95,7 +95,7 @@ public enum MarkdownTokenizer {
         (.link, try! NSRegularExpression(pattern: "\\[[^\\]\\n]+\\]\\([^)\\s]+\\)|https?://[^\\s)]+")),
     ]
 
-    static func inlineTokens(_ line: NSString, offset: Int) -> [Token] {
+    public static func inlineTokens(_ line: NSString, offset: Int) -> [Token] {
         var tokens: [Token] = []
         var code: [NSRange] = []
         for (kind, regex) in inlinePatterns {
