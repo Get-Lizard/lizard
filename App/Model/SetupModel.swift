@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import ExtensionHost
 import Foundation
 import Observation
 
@@ -9,7 +10,7 @@ import Observation
 @MainActor
 final class SetupModel {
     enum Page: Int, CaseIterable {
-        case welcome, hotkeys, permissions, folders, ai, github, done
+        case welcome, hotkeys, permissions, folders, ai, github, raycast, done
 
         var title: String {
             switch self {
@@ -19,6 +20,7 @@ final class SetupModel {
             case .folders: "Folders"
             case .ai: "AI"
             case .github: "GitHub"
+            case .raycast: "Raycast"
             case .done: "Try it"
             }
         }
@@ -46,14 +48,19 @@ final class SetupModel {
         page = Page(rawValue: UserDefaults.standard.integer(forKey: Self.stepKey)) ?? .welcome
     }
 
+    /// Pages that apply to this Mac (the Raycast step only when Raycast has extensions installed).
+    static var pages: [Page] {
+        Page.allCases.filter { $0 != .raycast || !ExtensionStore.raycastExtensions().isEmpty }
+    }
+
     func next() {
         forward = true
-        if let next = Page(rawValue: page.rawValue + 1) { page = next }
+        if let index = Self.pages.firstIndex(of: page), index + 1 < Self.pages.count { page = Self.pages[index + 1] }
     }
 
     func back() {
         forward = false
-        if let previous = Page(rawValue: page.rawValue - 1) { page = previous }
+        if let index = Self.pages.firstIndex(of: page), index > 0 { page = Self.pages[index - 1] }
     }
 
     func finish() {

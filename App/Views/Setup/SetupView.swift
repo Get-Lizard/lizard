@@ -40,6 +40,7 @@ struct SetupView: View {
                 case .folders: FoldersPage()
                 case .ai: AIPage()
                 case .github: GitHubPage()
+                case .raycast: RaycastPage()
                 case .done: DonePage()
                 }
             }
@@ -93,7 +94,7 @@ private struct StepperBar: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            ForEach(SetupModel.Page.allCases, id: \.self) { page in
+            ForEach(SetupModel.pages, id: \.self) { page in
                 VStack(spacing: 5) {
                     Capsule()
                         .fill(page.rawValue <= current.rawValue ? AnyShapeStyle(Brand.gradient) : AnyShapeStyle(.fill.tertiary))
@@ -239,6 +240,16 @@ private struct GitHubPage: View {
     var body: some View {
         PageHeader(title: "GitHub in your menu bar", subtitle: "Sign in once with your browser — no tokens. Lizard adds GitHub Review Requests: pull requests waiting on you, right in the menu bar.")
         GitHubConnectSection()
+    }
+}
+
+private struct RaycastPage: View {
+    @Environment(AppModel.self) private var app
+    @State private var showImporter = false
+
+    var body: some View {
+        PageHeader(title: "Coming from Raycast?", subtitle: "Lizard found Raycast on this Mac. Bring your extensions along — they run in Lizard as they are — and import your quicklinks.")
+        RaycastImportView(onDone: {}).environment(app).frame(minHeight: 330)
     }
 }
 

@@ -277,7 +277,7 @@ struct QuicklinksView: View {
 
     private func load() async {
         links = await app.quicklinks.links
-        app.launcher.refresh()
+        app.quicklinksChanged()
     }
 }
 

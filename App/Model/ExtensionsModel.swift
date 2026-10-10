@@ -39,6 +39,9 @@ final class ExtensionsModel {
     private(set) var githubDefaultState = GitHubDefaultState.notInstalled
     /// Extension subtitles set with updateCommandMetadata, by "extension/command".
     private(set) var subtitles: [String: String] = [:]
+    /// Extensions with a newer commit on GitHub: name → commit.
+    private(set) var updates: [String: String] = [:]
+    private(set) var updating: Set<String> = []
 
     let store: ExtensionStore
     @ObservationIgnored weak var app: AppModel?
@@ -57,7 +60,7 @@ final class ExtensionsModel {
 
     static var suggested: [Suggestion] {
         var list = [
-            Suggestion(name: githubExtension, title: "GitHub Review Requests", detail: "PRs waiting on you, in the menu bar (GitHub CLI sign-in).", source: githubExtension),
+            Suggestion(name: githubExtension, title: "GitHub Review Requests", detail: "PRs waiting on you, in the menu bar (GitHub CLI sign-in). External.", source: githubExtension),
         ]
         let builtIns: [(String, String, String)] = [
             ("lizard-translate", "Translate", "Translate text or the current selection."),
@@ -80,11 +83,123 @@ final class ExtensionsModel {
         Task {
             await reload()
             startEnabledMenuBars()
+            // Check GitHub for new versions shortly after launch, then every 6 hours.
+            try? await Task.sleep(for: .seconds(60))
+            while !Task.isCancelled {
+                await checkForUpdates(announce: true)
+                try? await Task.sleep(for: .seconds(6 * 3600))
+            }
         }
+    }
+
+    func checkForUpdates(announce: Bool = false) async {
+        let found = await store.availableUpdates()
+        let new = Set(found.keys).subtracting(updates.keys)
+        updates = found
+        if announce, !new.isEmpty {
+            app?.showHUD(new.count == 1 ? "Update available for \(new.first!)" : "\(new.count) extension updates available")
+        }
+    }
+
+    func update(_ name: String) {
+        updating.insert(name)
+        Task {
+            defer { updating.remove(name) }
+            do {
+                try await store.update(name)
+                updates[name] = nil
+                await reload()
+                message = "Updated \(name)."
+                // Restart its menu-bar items on the new code.
+                for command in installed.first(where: { $0.name == name })?.commands ?? [] where isMenuBarEnabled(name, command.name) {
+                    setMenuBar(name, command.name, enabled: false)
+                    setMenuBar(name, command.name, enabled: true)
+                }
+            } catch {
+                message = "Couldn't update \(name): \(error.localizedDescription)"
+            }
+        }
+    }
+
+    func updateAll() {
+        for name in updates.keys { update(name) }
+    }
+
+    /// Third-party extensions aren't reviewed by anyone; say so before installing one.
+    static func confirmExternalInstall(_ what: String) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Install an external extension?"
+        alert.informativeText = """
+            \(what) is made by a third party, not by Lizard. Lizard doesn't review extensions: they run with your \
+            permissions and can read files, use the network and run commands. Lizard isn't responsible for what an \
+            external extension does or for any damage it causes. Only install extensions from people you trust.
+            """
+        alert.addButton(withTitle: "Install")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    // MARK: Share & import
+
+    /// Saves an extension (code only, no personal data) to a `.lizardext` file to share.
+    func exportPackage(_ name: String) {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Export Here"
+        panel.message = "The exported file contains the extension's code only — no preferences or stored data."
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let folder = panel.url else { return }
+        Task {
+            do {
+                let file = try await store.exportPackage(name, to: folder)
+                NSWorkspace.shared.activateFileViewerSelecting([file])
+            } catch {
+                message = error.localizedDescription
+            }
+        }
+    }
+
+    /// Installs a `.lizardext` someone shared.
+    func installPackageFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.init(filenameExtension: "lizardext") ?? .zip, .zip]
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let file = panel.url, Self.confirmExternalInstall(file.lastPathComponent) else { return }
+        isBusy = true
+        Task {
+            defer { isBusy = false }
+            do {
+                let installedExtension = try await store.installPackage(file)
+                message = "Installed \(installedExtension.title) (external)."
+                await reload()
+            } catch {
+                message = error.localizedDescription
+            }
+        }
+    }
+
+    /// Imports the chosen Raycast extensions (their compiled code runs as-is).
+    func importFromRaycast(_ folders: [URL]) async -> Int {
+        var imported: Set<String> = []
+        for folder in folders {
+            if let item = try? await store.importFromRaycast(folder) { imported.insert(item.name) }
+        }
+        await reload()
+        for item in installed where imported.contains(item.name) {
+            for command in item.commands where command.mode == .menuBar && command.disabledByDefault != true {
+                setMenuBar(item.name, command.name, enabled: true)
+            }
+        }
+        return imported.count
     }
 
     func reload() async {
         installed = await store.installed()
+        app?.sync.scheduleWrite()
         githubDefaultState = installed.contains { $0.name == Self.githubExtension } ? .installed : (githubDefaultState == .installing ? .installing : .notInstalled)
     }
 
@@ -92,12 +207,14 @@ final class ExtensionsModel {
 
     func install(_ source: String) {
         guard !isBusy, !source.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        let builtIn = Self.builtInRoot.map { source.hasPrefix($0.path) } ?? false
+        if !builtIn, !Self.confirmExternalInstall(GitHubLocation.parse(source)?.display ?? source) { return }
         isBusy = true
         message = "Installing \(source)…"
         Task {
             defer { isBusy = false }
             do {
-                let installedExtension = try await store.install(source, builtIn: source.hasPrefix("/"))
+                let installedExtension = try await store.install(source, builtIn: builtIn)
                 message = "Installed \(installedExtension.title)."
                 await reload()
                 // Menu-bar commands appear right away.

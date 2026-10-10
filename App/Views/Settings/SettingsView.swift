@@ -20,7 +20,13 @@ struct SettingsView: View {
                 .formStyle(.grouped)
             }
             Tab("AI", systemImage: "sparkles") {
-                ScrollView { AISetupSection().padding(20) }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        AISetupSection()
+                        KnowledgeSettingsSection()
+                    }
+                    .padding(20)
+                }
             }
             Tab("Accounts", systemImage: "person.crop.circle") {
                 ScrollView {
@@ -32,6 +38,7 @@ struct SettingsView: View {
                 }
             }
             Tab("Extensions", systemImage: "puzzlepiece.extension") { ExtensionsSettings() }
+            Tab("Sync & Backup", systemImage: "icloud") { SyncSettings() }
         }
         .frame(width: 640, height: 560)
     }
@@ -80,58 +87,3 @@ private struct GeneralSettings: View {
     }
 }
 
-private struct ExtensionsSettings: View {
-    @Environment(AppModel.self) private var app
-    @State private var installName = ""
-
-    var body: some View {
-        let extensions = app.extensions
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                TextField("Install from Raycast store (e.g. google-translate) or a folder path", text: $installName)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit(install)
-                Button("Install", action: install).disabled(installName.isEmpty || extensions.isBusy)
-            }
-            if let message = extensions.message {
-                Text(message).font(.caption).foregroundStyle(.secondary)
-            }
-            List {
-                Section("Installed") {
-                    ForEach(extensions.installed) { item in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(item.title).font(.headline)
-                                Text("\(item.commands.count) commands · \(item.source)").font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Button("Remove") { extensions.uninstall(item.name) }
-                        }
-                    }
-                }
-                Section("Suggested") {
-                    ForEach(ExtensionsModel.suggested, id: \.name) { suggestion in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(suggestion.title).font(.headline)
-                                Text(suggestion.detail).font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if extensions.installed.contains(where: { $0.name == suggestion.name }) {
-                                Image(systemName: "checkmark.circle.fill").foregroundStyle(Brand.moss)
-                            } else {
-                                Button("Add") { extensions.install(suggestion.source) }.disabled(extensions.isBusy)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        .padding(20)
-    }
-
-    private func install() {
-        app.extensions.install(installName)
-        installName = ""
-    }
-}

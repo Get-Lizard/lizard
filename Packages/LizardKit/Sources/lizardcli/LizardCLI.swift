@@ -32,7 +32,10 @@ struct LizardCLI {
 
     static func usage() {
         print("""
-            usage: lizardcli ext install <name|path> | ext list | ext run <extension> <command> [k=v ...]
+            usage: lizardcli ext install <github.com/owner/repo[/path][@ref] | owner/repo | path | raycast-name>
+                   lizardcli ext list | ext run <extension> <command> [k=v ...] | ext updates | ext update <name>
+                   lizardcli ext new <name> [author] | ext validate [folder] | ext export <name>
+                   lizardcli ext raycast | ext import-raycast <name>
                    lizardcli transform <\(TextTransform.allCases.map(\.rawValue).joined(separator: "|"))> <text>
                    lizardcli apple-ai | gh-status
             """)
@@ -45,9 +48,40 @@ struct LizardCLI {
             guard args.count >= 2 else { return usage() }
             let installed = try await store.install(args[1])
             print("installed \(installed.name): \(installed.commands.map(\.name).joined(separator: ", "))")
+        case "validate":
+            let folder = URL(filePath: (args.count >= 2 ? args[1] : ".") as String).standardizedFileURL
+            let issues = ExtensionValidator.validate(folder)
+            issues.forEach { print($0) }
+            let errors = issues.filter { $0.level == .error }.count
+            print(errors == 0 ? "✓ \(folder.lastPathComponent) follows the Lizard extension guidelines" : "\(errors) error(s)")
+            if errors > 0 { exit(1) }
+        case "new":
+            guard args.count >= 2 else { return usage() }
+            let author = args.count >= 3 ? args[2] : NSUserName()
+            let title = args[1].split(separator: "-").map { $0.capitalized }.joined(separator: " ")
+            let folder = try ExtensionValidator.scaffold(name: args[1], title: title, author: author, in: URL(filePath: FileManager.default.currentDirectoryPath))
+            print("created \(folder.path) — add assets/icon.png (512×512), then `lizardcli ext validate \(args[1])`")
+        case "updates":
+            let updates = await store.availableUpdates()
+            if updates.isEmpty { print("everything is up to date") }
+            for (name, commit) in updates.sorted(by: { $0.key < $1.key }) { print("\(name)\t→ \(commit.prefix(7))") }
+        case "update":
+            guard args.count >= 2 else { return usage() }
+            let updated = try await store.update(args[1])
+            print("updated \(updated.name): \(updated.source)")
+        case "export":
+            guard args.count >= 2 else { return usage() }
+            let file = try await store.exportPackage(args[1], to: URL(filePath: FileManager.default.currentDirectoryPath))
+            print("exported \(file.path)")
+        case "raycast":
+            for item in ExtensionStore.raycastExtensions() { print("\(item.manifest.name)\t\(item.manifest.title)\t\(item.folder.path)") }
+        case "import-raycast":
+            guard args.count >= 2, let match = ExtensionStore.raycastExtensions().first(where: { $0.manifest.name == args[1] }) else { return usage() }
+            let imported = try await store.importFromRaycast(match.folder)
+            print("imported \(imported.name): \(imported.commands.map(\.name).joined(separator: ", "))")
         case "list":
             for item in await store.installed() {
-                print("\(item.name)\t\(item.title)\t\(item.source)\t\(item.commands.map { "\($0.name)(\($0.mode.rawValue))" }.joined(separator: " "))")
+                print("\(item.name)\t\(item.title)\t\(item.isExternal ? "external" : "built-in")\t\(item.source)\t\(item.commands.map { "\($0.name)(\($0.mode.rawValue))" }.joined(separator: " "))")
             }
         case "run":
             guard args.count >= 3 else { return usage() }

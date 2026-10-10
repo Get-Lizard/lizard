@@ -10,6 +10,7 @@ let package = Package(
         .library(name: "Notes", targets: ["Notes"]),
         .library(name: "Clipboard", targets: ["Clipboard"]),
         .library(name: "DevTools", targets: ["DevTools"]),
+        .library(name: "Knowledge", targets: ["Knowledge"]),
         .library(name: "AIEngine", targets: ["AIEngine"]),
         .library(name: "AIEngineMLX", targets: ["AIEngineMLX"]),
         .library(name: "ExtensionHost", targets: ["ExtensionHost"]),
@@ -28,13 +29,16 @@ let package = Package(
         .target(name: "Notes", dependencies: ["LizardCore"]),
         .target(name: "Clipboard", dependencies: ["LizardCore"], linkerSettings: [.linkedLibrary("sqlite3")]),
         .target(name: "DevTools", dependencies: ["LizardCore"]),
+        .target(name: "Knowledge", dependencies: ["LizardCore"], linkerSettings: [.linkedLibrary("sqlite3")]),
         .target(name: "AIEngine"),
         .target(
             name: "AIEngineMLX",
             dependencies: [
                 "AIEngine",
                 "LizardCore",
+                "Knowledge",
                 .product(name: "MLX", package: "mlx-swift"),
+                .product(name: "MLXEmbedders", package: "mlx-swift-lm"),
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
                 .product(name: "MLXHuggingFace", package: "mlx-swift-lm"),
@@ -48,10 +52,10 @@ let package = Package(
             linkerSettings: [.linkedLibrary("sqlite3")]),
         .executableTarget(
             name: "lizardcli",
-            dependencies: ["LizardCore", "Search", "Notes", "DevTools", "AIEngine", "ExtensionHost"]),
+            dependencies: ["LizardCore", "Search", "Notes", "DevTools", "AIEngine", "ExtensionHost", "Knowledge"]),
         .testTarget(
             name: "LizardKitTests",
-            dependencies: ["LizardCore", "Search", "Notes", "Clipboard", "DevTools", "AIEngine", "ExtensionHost"]),
+            dependencies: ["LizardCore", "Search", "Notes", "Clipboard", "DevTools", "AIEngine", "ExtensionHost", "Knowledge"]),
     ],
     swiftLanguageModes: [.v6]
 )

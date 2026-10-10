@@ -31,6 +31,8 @@ App/                            SwiftUI + AppKit host; LSUIElement accessory app
     Hotkeys.swift               KeyboardShortcuts names/defaults, conflict warnings (⌃Space, ⌘Space)
     Preferences.swift           folders and toggles in UserDefaults
     ResourceMonitor.swift       memory pressure → trim/unload MLX (from Cocoon)
+    KnowledgeService.swift      what gets indexed, background sync, search, AskNotesSession (cited answers)
+    Portability.swift           PortableSnapshot, BackupService (.lizardbackup), SyncService (iCloud Drive)
   Views/
     Launcher/                   LauncherPanel (NSPanel), LauncherRootView, SearchView, ResultRow
     AI/                         ChatView (MarkdownUI), AIJobView, ChatHistoryView
@@ -47,7 +49,8 @@ Packages/LizardKit/             UI-free Swift package (Swift 6.2 tools, macOS 26
   Sources/DevTools              TextTransform (JSON/JWT/Base64/URL/hash/case/time), PortKiller, ProcessList, ProcessKiller
   Sources/AIEngine              AIProvider protocol, Anthropic/OpenAI/OpenAI-compatible clients, SSE, OpenRouter OAuth,
                                 OpenCode Zen, Apple Foundation Models (+ AppleFMProvider), ModelCatalog, AIJobs
-  Sources/AIEngineMLX           MLXModelHost/MLXProvider/ModelStore (only module that links MLX)
+  Sources/AIEngineMLX           MLXModelHost/MLXProvider/ModelStore + MLXEmbedder (only module that links MLX)
+  Sources/Knowledge             semantic index: chunker, embedders, KnowledgeIndex (SQLite vectors + FTS5), AskNotes
   Sources/ExtensionHost         Swift side of the extension runtime (manifest, view tree, runtime, store)
     js/                         the Node runtime: @raycast/api + @raycast/utils shim on react-reconciler
   Sources/lizardcli             headless CLI
@@ -214,6 +217,52 @@ Icons are generated SF-Symbol tiles; no third-party logos.
 Verified: the shim's 4 end-to-end tests; `github-review-requests` installed from the store (~7 s) with its menu bar
 rendering live PRs through `gh`; Kill Process, Warp, Slack and Reminders rendered headless.
 
+## 5b. Extension sources, updates, sharing (no store)
+
+Lizard deliberately has **no store**: any GitHub repo folder is an extension source. The guideline for authors
+(and for agents asked to build an extension) is `docs/EXTENSIONS.md`; `lizardcli ext new|validate` enforce it
+(`ExtensionValidator`).
+
+- `ExtensionSource` = `.github(GitHubLocation, commit)` | `.folder` | `.raycastImport` | `.builtIn`.
+  `GitHubLocation.parse` accepts github.com URLs (`/tree/<ref>/<path>`), `owner/repo[/path][@ref]`, and a bare name
+  as shorthand for `raycast/extensions/extensions/<name>`. Old `store(name:commit:)` records decode as GitHub.
+- Installs pin to the **newest commit touching the folder** (`GitHubAPI.latestCommit(touching:)`), the same value
+  update checks compare against — pinning the repo HEAD made every install look outdated.
+- `ExtensionsModel` checks for updates 60 s after launch and every 6 h; HUD on new ones; Settings shows **Update**.
+- Every non-built-in extension is **External**: badge in Settings and `confirmExternalInstall` (responsibility notice)
+  before installing from GitHub, a file, Raycast or another Mac.
+- Share = `.lizardext` (zip of the package, **no data**: no preferences, no support folder, no node_modules).
+- Raycast import (`ExtensionStore.raycastExtensions/importFromRaycast`): Raycast keeps each installed extension's
+  compiled `<command>.js` bundles in `~/.config/raycast/extensions/<uuid or name>/`; they run on our host as-is.
+  Raycast's data and quicklinks live in an encrypted SQLite DB, so quicklinks come from Raycast's *Export Quicklinks*
+  JSON (`Quicklink.fromRaycastExport`, `{Query}` → `{query}`). The setup shows a Raycast page only when it finds some.
+
+## 5c. Knowledge (semantic search + Ask your notes)
+
+- Embeddings: `MLXEmbedder` (Qwen3-Embedding-0.6B 4-bit DWQ via `MLXEmbedders`, multilingual, ~350 MB, opt-in
+  download) else `AppleSentenceEmbedder` (`NLEmbedding.sentenceEmbedding(.english)`). Tested: Apple's
+  `NLContextualEmbedding` mean-pooled is useless for retrieval (everything scores ~0.75). Changing embedder
+  re-embeds everything (`meta.embedder`).
+- Qwen3-Embedding needs an instruction prefix on **queries only**, an EOS token appended, right padding, and
+  last-token pooling with the mask. Embedding shares `MLXModelHost`'s generation slot (MLX isn't safe concurrently).
+- `KnowledgeIndex`: documents/chunks/FTS5 in `Application Support/Lizard/knowledge.sqlite`; vectors scanned in memory
+  with `vDSP_dotpr`; hybrid ranking = reciprocal-rank fusion (vector weight 1.0, BM25 0.8, k = 60), max 2 passages
+  per document. Unchanged documents (content hash) are never re-embedded.
+- Sources: notes (files), work log (one document per day, last year), clipboard (last 500 text items), chats.
+- `AskNotes`: numbered sources + cite-with-[n] prompt; `relevant()` drops passages under 80% of the best similarity;
+  if a small model answers with bare citations ("[1] [2]" — Apple's model did), retry once without the citation rule.
+
+## 5d. Sync & backup
+
+- iCloud sync uses **iCloud Drive** (`~/Library/Mobile Documents/com~apple~CloudDocs/Lizard`) — no entitlements,
+  provisioning or server. Each Mac writes `Sync/<deviceID>.json` (`PortableSnapshot`); others read them every 2 min:
+  quicklinks = newest list wins, settings from the newest snapshot, missing extensions are *offered*, never
+  auto-installed. Evicted `.icloud` placeholders are re-downloaded with `startDownloadingUbiquitousItem`.
+- Notes/work log sync by moving the folders into iCloud Drive (`SyncService.moveNotes`, copy-only, never deletes).
+- CloudKit / `NSUbiquitousKeyValueStore` would need an iCloud entitlement + provisioning profile; not used.
+- `.lizardbackup` (zip): snapshot.json, per-extension preferences (password preferences excluded) + support data,
+  packages that can't be re-downloaded, optional notes/work log/chats. Keychain secrets and clipboard never leave.
+
 ## 6. Known pitfalls (each of these happened)
 
 - **NSPanel typing:** the non-activating panel must override `canBecomeKey` → `true`.
@@ -239,6 +288,11 @@ rendering live PRs through `gh`; Kill Process, Warp, Slack and Reminders rendere
 - **Shell:** BSD `sed` has no `\|` alternation — use Python for regex edits. There's no `timeout` command on macOS.
 - **Testing:** UI can't be driven from the terminal (no assistive access); use the `--show-*` flags + `screencapture`.
 - The screen during screenshots is the user's real desktop; don't describe unrelated personal content.
+- The user may be using the app while you test: relaunching it (`pkill` + `open --args …`) interrupts them, and a
+  debug launch with `-Lizard.NotesFolder …` points *their* session at test data. Prefer unit tests and the CLI.
+- `open` right after `pkill` fails with LSOpen error -600 while the old process exits; wait with `pgrep` first.
+- Spawned helper agents in this project produced nothing for 20+ minutes and had to be stopped; check their output
+  early rather than waiting on them.
 
 ## 7. Status
 

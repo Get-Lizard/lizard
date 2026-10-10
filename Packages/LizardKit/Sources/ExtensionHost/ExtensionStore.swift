@@ -22,28 +22,14 @@ public struct InstalledExtension: Sendable, Hashable, Identifiable {
 
     public func bundle(for command: String) -> URL { buildDirectory.appending(path: "\(command).js") }
 
+    /// Third-party code Lizard didn't write or review.
+    public var isExternal: Bool { source.isExternal }
+
     /// The extension's icon file, if it has one.
     public var iconURL: URL? {
         guard let icon = manifest.icon else { return nil }
         let url = assetsDirectory.appending(path: icon)
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
-    }
-}
-
-/// Where an extension came from.
-public enum ExtensionSource: Sendable, Hashable, Codable, CustomStringConvertible {
-    /// A folder in raycast/extensions, pinned to a commit.
-    case store(name: String, commit: String)
-    case folder(path: String)
-    /// Shipped inside Lizard.
-    case builtIn(path: String)
-
-    public var description: String {
-        switch self {
-        case .store(_, let commit): "Raycast Store @ \(commit.prefix(7))"
-        case .folder(let path): path
-        case .builtIn: "Built in"
-        }
     }
 }
 
@@ -79,14 +65,33 @@ public actor ExtensionStore {
 
     // MARK: Install
 
-    /// Installs from a folder path, a built-in folder, or a raycast/extensions name ("google-translate").
+    /// Installs from a local folder, a GitHub location (`owner/repo[/path][@ref]`, a github.com URL)
+    /// or a bare name from Raycast's public catalog (`google-translate`).
     @discardableResult
     public func install(_ request: String, builtIn: Bool = false) async throws -> InstalledExtension {
         let expanded = (request as NSString).expandingTildeInPath
         if expanded.hasPrefix("/"), FileManager.default.fileExists(atPath: expanded) {
             return try await installFolder(URL(filePath: expanded), source: builtIn ? .builtIn(path: expanded) : .folder(path: expanded))
         }
-        return try await installFromStore(request.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+        guard let location = GitHubLocation.parse(request) else {
+            throw ExtensionHostError.download("“\(request)” isn't a folder, a GitHub repo (owner/repo) or an extension name.")
+        }
+        return try await install(location)
+    }
+
+    @discardableResult
+    public func install(_ location: GitHubLocation) async throws -> InstalledExtension {
+        log("Looking up \(location.display)…")
+        // Pin to the newest commit that touched this folder: the same commit update checks compare against.
+        var commit = try await GitHubAPI.latestCommit(touching: location)
+        if commit == nil { commit = try await GitHubAPI.resolveCommit(location) }
+        guard let commit else { throw ExtensionHostError.download("couldn't resolve \(location.display)") }
+        let staging = try await GitHubAPI.downloadFolder(location, commit: commit, log: log)
+        defer { try? FileManager.default.removeItem(at: staging) }
+        guard FileManager.default.fileExists(atPath: staging.appending(path: "package.json").path) else {
+            throw ExtensionHostError.download("\(location.display) has no package.json — point to the extension's folder (owner/repo/path).")
+        }
+        return try await installFolder(staging, source: .github(location, commit: commit))
     }
 
     public func uninstall(_ name: String) throws {
@@ -101,7 +106,7 @@ public actor ExtensionStore {
         let package = directory.appending(path: "package", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         log("Copying \(manifest.title)…")
-        // Fresh copy of the sources; keep node_modules if the lockfile didn't change.
+        // Fresh copy of the sources; keep node_modules (and the user's data) across updates.
         let staging = directory.appending(path: "package.new", directoryHint: .isDirectory)
         try? FileManager.default.removeItem(at: staging)
         let copy = try await ProcessRunner.run("/usr/bin/rsync", ["-a", "--exclude", "node_modules", "--exclude", ".git", folder.path + "/", staging.path + "/"], timeout: .seconds(120))
@@ -117,66 +122,93 @@ public actor ExtensionStore {
         return installed
     }
 
-    /// Downloads one extension folder from raycast/extensions at the current `main` commit
-    /// (tree API + raw files — no full clone of the huge repository).
-    private func installFromStore(_ name: String) async throws -> InstalledExtension {
-        guard name.range(of: #"^[a-z0-9][a-z0-9-_.]*$"#, options: .regularExpression) != nil else {
-            throw ExtensionHostError.download("“\(name)” isn't a valid extension name.")
-        }
-        log("Looking up \(name) in the Raycast Store…")
-        let commit = try await Self.latestCommit()
-        let path = "extensions/\(name)"
-        let treeURL = URL(string: "https://api.github.com/repos/raycast/extensions/git/trees/\(commit)%3A\(path.replacingOccurrences(of: "/", with: "%2F"))?recursive=1")!
-        let tree = try await Self.githubJSON(treeURL)
-        guard let entries = tree["tree"] as? [[String: Any]] else { throw ExtensionHostError.download("“\(name)” wasn't found in raycast/extensions.") }
-        let files = entries.filter { ($0["type"] as? String) == "blob" }.compactMap { $0["path"] as? String }
-            .filter { !$0.hasPrefix("node_modules/") && !$0.hasPrefix("metadata/") && !$0.hasPrefix("media/") }
-        let staging = FileManager.default.temporaryDirectory.appending(path: "lizard-ext-\(UUID().uuidString)", directoryHint: .isDirectory)
-        defer { try? FileManager.default.removeItem(at: staging) }
-        log("Downloading \(files.count) files…")
-        try await withThrowingTaskGroup(of: Void.self) { group in
-            var active = 0
-            for file in files {
-                if active >= 8 {
-                    try await group.next()
-                    active -= 1
-                }
-                active += 1
-                group.addTask {
-                    let raw = URL(string: "https://raw.githubusercontent.com/raycast/extensions/\(commit)/\(path)/\(file)")!
-                    let (data, response) = try await URLSession.shared.data(from: raw)
-                    guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw ExtensionHostError.download("\(file): HTTP error") }
-                    let target = staging.appending(path: file)
-                    try FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
-                    try data.write(to: target)
-                }
+    // MARK: Updates
+
+    /// Extensions whose GitHub folder has a newer commit than the installed one: name → new commit.
+    public func availableUpdates() async -> [String: String] {
+        var updates: [String: String] = [:]
+        for item in installed() {
+            guard let location = item.source.github, let installedCommit = item.source.commit else { continue }
+            if let latest = try? await GitHubAPI.latestCommit(touching: location), latest != installedCommit {
+                updates[item.name] = latest
             }
-            try await group.waitForAll()
         }
-        return try await installFolder(staging, source: .store(name: name, commit: commit))
+        return updates
     }
 
-    static func latestCommit() async throws -> String {
-        let json = try await githubJSON(URL(string: "https://api.github.com/repos/raycast/extensions/commits/main")!)
-        guard let sha = json["sha"] as? String else { throw ExtensionHostError.download("couldn't read the latest commit") }
-        return sha
+    /// Re-installs from the same GitHub location at its newest commit, keeping preferences and data.
+    @discardableResult
+    public func update(_ name: String) async throws -> InstalledExtension {
+        guard let item = extensionNamed(name), let location = item.source.github else { throw ExtensionHostError.notInstalled(name) }
+        return try await install(location)
     }
 
-    /// GitHub API call, authenticated with the GitHub CLI's token when available (higher limits).
-    static func githubJSON(_ url: URL) async throws -> [String: Any] {
-        var request = URLRequest(url: url)
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        if let status = await GitHubCLI.status(), status.isSignedIn,
-            let token = try? await ProcessRunner.run(status.executable, ["auth", "token"], environment: GitHubCLI.environment(managed: status.isManaged), timeout: .seconds(10)),
-            token.succeeded {
-            request.setValue("Bearer \(token.output.trimmingCharacters(in: .whitespacesAndNewlines))", forHTTPHeaderField: "Authorization")
+    // MARK: Raycast import
+
+    /// Extensions installed in Raycast on this Mac (already compiled by Raycast).
+    public nonisolated static func raycastExtensions() -> [(folder: URL, manifest: ExtensionManifest)] {
+        let root = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".config/raycast/extensions", directoryHint: .isDirectory)
+        let folders = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? []
+        return folders.compactMap { folder in
+            guard folder.lastPathComponent != "node_modules", let manifest = try? ExtensionManifest.load(from: folder) else { return nil }
+            return (folder, manifest)
+        }.sorted { $0.manifest.title < $1.manifest.title }
+    }
+
+    /// Imports a Raycast-installed extension: its compiled command bundles run as-is (no network, no build).
+    @discardableResult
+    public func importFromRaycast(_ folder: URL) async throws -> InstalledExtension {
+        let manifest = try ExtensionManifest.load(from: folder)
+        let directory = root.appending(path: manifest.name, directoryHint: .isDirectory)
+        let package = directory.appending(path: "package", directoryHint: .isDirectory)
+        let build = directory.appending(path: "build", directoryHint: .isDirectory)
+        try? FileManager.default.removeItem(at: package)
+        try? FileManager.default.removeItem(at: build)
+        try FileManager.default.createDirectory(at: build, withIntermediateDirectories: true)
+        log("Importing \(manifest.title) from Raycast…")
+        let copy = try await ProcessRunner.run("/usr/bin/rsync", ["-a", folder.path + "/", package.path + "/"], timeout: .seconds(300))
+        guard copy.succeeded else { throw ExtensionHostError.buildFailed(copy.tail(5)) }
+        for command in manifest.commands {
+            let bundle = package.appending(path: "\(command.name).js")
+            if FileManager.default.fileExists(atPath: bundle.path) {
+                try FileManager.default.copyItem(at: bundle, to: build.appending(path: "\(command.name).js"))
+            }
         }
-        let (data, response) = try await URLSession.shared.data(for: request)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        guard status == 200 else {
-            throw ExtensionHostError.download(status == 404 ? "not found" : status == 403 ? "GitHub rate limit reached — sign in to GitHub in Settings › Accounts" : "HTTP \(status)")
+        try JSONEncoder().encode(ExtensionSource.raycastImport(path: folder.path)).write(to: directory.appending(path: "source.json"))
+        guard let installed = load(directory) else { throw ExtensionHostError.buildFailed("manifest unreadable after import") }
+        return installed
+    }
+
+    // MARK: Export
+
+    /// Writes `<name>.lizardext` (a zip of the extension's source, no data, no dependencies) into `folder`.
+    public func exportPackage(_ name: String, to folder: URL) async throws -> URL {
+        guard let item = extensionNamed(name) else { throw ExtensionHostError.notInstalled(name) }
+        let staging = FileManager.default.temporaryDirectory.appending(path: "lizard-export-\(UUID().uuidString)/\(name)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: staging.deletingLastPathComponent(), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: staging.deletingLastPathComponent()) }
+        let copy = try await ProcessRunner.run(
+            "/usr/bin/rsync", ["-a", "--exclude", "node_modules", "--exclude", ".git", item.packageDirectory.path + "/", staging.path + "/"], timeout: .seconds(120))
+        guard copy.succeeded else { throw ExtensionHostError.buildFailed(copy.tail(5)) }
+        let target = folder.appending(path: "\(name).lizardext")
+        try? FileManager.default.removeItem(at: target)
+        let zip = try await ProcessRunner.run("/usr/bin/ditto", ["-c", "-k", "--keepParent", staging.path, target.path], timeout: .seconds(120))
+        guard zip.succeeded else { throw ExtensionHostError.buildFailed(zip.tail(5)) }
+        return target
+    }
+
+    /// Installs a `.lizardext` file someone shared.
+    @discardableResult
+    public func installPackage(_ file: URL) async throws -> InstalledExtension {
+        let staging = FileManager.default.temporaryDirectory.appending(path: "lizard-import-\(UUID().uuidString)", directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: staging) }
+        let unzip = try await ProcessRunner.run("/usr/bin/ditto", ["-x", "-k", file.path, staging.path], timeout: .seconds(120))
+        guard unzip.succeeded else { throw ExtensionHostError.download("not a Lizard extension file") }
+        let candidates = [staging] + ((try? FileManager.default.contentsOfDirectory(at: staging, includingPropertiesForKeys: nil)) ?? [])
+        guard let folder = candidates.first(where: { FileManager.default.fileExists(atPath: $0.appending(path: "package.json").path) }) else {
+            throw ExtensionHostError.download("the file has no package.json")
         }
-        return (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+        return try await installFolder(folder, source: .folder(path: file.path))
     }
 
     // MARK: Build

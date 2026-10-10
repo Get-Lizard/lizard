@@ -28,9 +28,11 @@ final class AppModel {
     let accounts = AccountsModel()
     let extensions = ExtensionsModel()
     let launcher = LauncherModel()
+    private(set) var knowledge: KnowledgeService!
+    private(set) var sync: SyncService!
 
-    @ObservationIgnored let notes = NotesStore(root: Preferences.notesFolder)
-    @ObservationIgnored let workLog = WorkLogStore(root: Preferences.workLogFolder)
+    @ObservationIgnored private(set) var notes = NotesStore(root: Preferences.notesFolder)
+    @ObservationIgnored private(set) var workLog = WorkLogStore(root: Preferences.workLogFolder)
     @ObservationIgnored let quicklinks = QuicklinkStore()
     @ObservationIgnored let frecency = Frecency()
     @ObservationIgnored private let indexer = AppIndexer()
@@ -53,6 +55,24 @@ final class AppModel {
     init() {
         launcher.app = self
         extensions.app = self
+        knowledge = KnowledgeService(app: self)
+        sync = SyncService(app: self)
+    }
+
+    /// Notes/work-log folders moved (iCloud, setup): point the stores at the new place.
+    func reloadNotesFolders() {
+        notes = NotesStore(root: Preferences.notesFolder)
+        workLog = WorkLogStore(root: Preferences.workLogFolder)
+        knowledge.scheduleSync(after: 1)
+    }
+
+    /// Quicklinks were added, edited, restored or synced.
+    func quicklinksChanged() {
+        Task {
+            quicklinkList = await quicklinks.links
+            launcher.refresh()
+            sync.scheduleWrite()
+        }
     }
 
     // MARK: Lifecycle
@@ -71,6 +91,8 @@ final class AppModel {
         startClipboard()
         extensions.start()
         accounts.refreshGitHub()
+        knowledge.start()
+        sync.start()
 
         let firstRun = !SetupModel.hasCompletedSetup
         let hasArgFlag = CommandLine.arguments.contains { $0.hasPrefix("--") }
@@ -84,6 +106,16 @@ final class AppModel {
             }
         }
         if arguments.contains("--show-settings") { openSettings() }
+        for flag in ["--show-knowledge", "--ask-notes"] {
+            if let index = arguments.firstIndex(of: flag), index + 1 < arguments.count {
+                let query = arguments[index + 1]
+                Task {
+                    try? await Task.sleep(for: .seconds(12))
+                    showLauncher()
+                    launcher.push(.knowledge(query: query, ask: flag == "--ask-notes"))
+                }
+            }
+        }
         if arguments.contains("--show-clipboard") { Task { try? await Task.sleep(for: .seconds(1.5)); open(.clipboard) } }
         if !hasArgFlag {
             showSplash(firstLaunch: firstRun) { [weak self] in
@@ -282,6 +314,12 @@ final class AppModel {
             command("ai-chats", "AI Chat History", "Past conversations", "bubble.left.and.text.bubble.right") { [weak self] in self?.launcher.push(.chats) },
             command("clipboard", "Clipboard History", "Search and paste anything you copied", "doc.on.clipboard") { [weak self] in self?.launcher.push(.clipboard) },
             command("notes", "Search Notes", "Your Markdown notes", "note.text") { [weak self] in self?.launcher.push(.notes(nil)) },
+            command("semantic-search", "Search by Meaning", "Notes, work log, clipboard and chats — finds paraphrases too", "text.magnifyingglass") { [weak self] in
+                self?.launcher.push(.knowledge(query: "", ask: false))
+            },
+            command("ask-notes", "Ask Your Notes", "Answers from your own notes and logs, with sources", "sparkle.magnifyingglass") { [weak self] in
+                self?.launcher.push(.knowledge(query: "", ask: true))
+            },
             command("new-note", "New Note", "Start a Markdown note", "square.and.pencil") { [weak self] in self?.open(.newNote) },
             command("work-log", "Log Work", "Add a timestamped work-log entry", "list.bullet.clipboard", keepOpen: false) { [weak self] in
                 self?.hideLauncher()
@@ -432,6 +470,7 @@ final class AppModel {
         let app = workLogContextApp
         do {
             try workLog.append(text: text, app: app)
+            knowledge.scheduleSync()
         } catch {
             showHUD("Couldn't save: \(error.localizedDescription)")
         }

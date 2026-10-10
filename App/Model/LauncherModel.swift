@@ -19,6 +19,7 @@ final class LauncherModel {
         case processes
         case quicklinks
         case aiJob(AIJob)
+        case knowledge(query: String, ask: Bool)
         case extensionView(ExtensionSession)
     }
 
@@ -28,9 +29,18 @@ final class LauncherModel {
     }
 
     var query = "" {
-        didSet { if query != oldValue { refresh() } }
+        didSet {
+            if query != oldValue {
+                semanticItems = []
+                refresh()
+                searchSemantically()
+            }
+        }
     }
     private(set) var sections: [Section] = []
+    /// Semantic matches for the current query (filled in asynchronously).
+    private(set) var semanticItems: [LauncherItem] = []
+    @ObservationIgnored private var semanticTask: Task<Void, Never>?
     private(set) var selectedID: String?
     private(set) var stack: [Route] = []
     /// Bumped each time the panel is summoned (the mark flicks its tongue, focus returns).
@@ -127,10 +137,32 @@ final class LauncherModel {
             if !extensionCommands.isEmpty { sections.append(Section(title: "Extensions", items: extensionCommands)) }
         } else {
             if !ranked.isEmpty { sections.append(Section(title: "Results", items: Array(ranked.prefix(30)))) }
+            if !semanticItems.isEmpty { sections.append(Section(title: "From your notes", items: semanticItems)) }
             sections.append(Section(title: "Use “\(query)” with…", items: fallbacks(for: query)))
         }
         self.sections = sections
         if !allItems.contains(where: { $0.id == selectedID }) { selectedID = allItems.first?.id }
+    }
+
+    /// Top passages by meaning, shown under the regular results (debounced; 4+ characters).
+    private func searchSemantically() {
+        semanticTask?.cancel()
+        let text = query.trimmingCharacters(in: .whitespaces)
+        guard text.count >= 4, let app else { return }
+        semanticTask = Task {
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            let hits = await app.knowledge.search(text, limit: 3).filter { $0.similarity > 0.45 || $0.similarity == 0 }
+            guard !Task.isCancelled, text == query.trimmingCharacters(in: .whitespaces) else { return }
+            semanticItems = hits.map { hit in
+                LauncherItem(id: "knowledge:\(hit.id)", title: hit.title, subtitle: hit.text.replacingOccurrences(of: "\n", with: " "),
+                    icon: .symbol(hit.source.symbol, Brand.teal), kind: .note) { [weak app] in
+                    app?.knowledge.open(hit)
+                    return hit.source == .note || hit.source == .chat
+                }
+            }
+            refresh()
+        }
     }
 
     /// Always-present actions for typed text: ask AI, quicklinks.
@@ -142,6 +174,10 @@ final class LauncherModel {
                 return true
             }
         ]
+        items.append(LauncherItem(id: "fallback.ask-notes", title: "Ask Your Notes", subtitle: query, icon: .symbol("sparkle.magnifyingglass", Brand.teal), kind: .ai) { [weak self] in
+            self?.push(.knowledge(query: query, ask: true))
+            return true
+        })
         items += app.quicklinkFallbacks(for: query)
         return items
     }

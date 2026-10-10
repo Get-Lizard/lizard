@@ -28,6 +28,8 @@ struct LauncherRootView: View {
                 QuicklinksView()
             case .aiJob(let job):
                 AIJobView(job: job)
+            case .knowledge(let query, let ask):
+                KnowledgeView(query: query, ask: ask)
             case .extensionView(let session):
                 ExtensionView(session: session)
             }

@@ -3,6 +3,20 @@ import LizardCore
 
 /// A URL template opened with the launcher's text: "https://github.com/search?q={query}".
 public struct Quicklink: Codable, Sendable, Hashable, Identifiable {
+    /// Converts a Raycast quicklinks export (`[{name, link, openWith?}]`, `{Query}` placeholders).
+    public static func fromRaycastExport(_ data: Data) -> [Quicklink] {
+        guard let items = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return [] }
+        return items.compactMap { item in
+            guard let name = item["name"] as? String, var link = item["link"] as? String else { return nil }
+            for (raycast, lizard) in [("{Query}", "{query}"), ("{query}", "{query}"), ("{Clipboard Text}", "{clipboard}"), ("{clipboard}", "{clipboard}"), ("{Selected Text}", "{selection}"), ("{selection}", "{selection}")] {
+                link = link.replacingOccurrences(of: raycast, with: lizard)
+            }
+            // `{argument name="x"}` → the typed query.
+            link = link.replacingOccurrences(of: #"\{argument[^}]*\}"#, with: "{query}", options: .regularExpression)
+            return Quicklink(name: name, template: link, symbol: link.hasPrefix("http") ? "link" : "arrow.up.forward.app")
+        }
+    }
+
     public var id: UUID
     public var name: String
     public var template: String
@@ -71,7 +85,31 @@ public actor QuicklinkStore {
         persist()
     }
 
+    /// Replaces every quicklink (restore, iCloud sync, Raycast import).
+    public func replaceAll(_ newLinks: [Quicklink]) {
+        links = newLinks
+        persist()
+    }
+
+    /// Adds links whose template isn't already present; returns how many were added.
+    @discardableResult
+    public func merge(_ newLinks: [Quicklink]) -> Int {
+        let existing = Set(links.map(\.template))
+        let added = newLinks.filter { !existing.contains($0.template) }
+        links += added
+        persist()
+        return added.count
+    }
+
+    /// Notified after every change (iCloud sync listens).
+    public var onChange: (@Sendable () -> Void)?
+
+    public func setOnChange(_ handler: @escaping @Sendable () -> Void) {
+        onChange = handler
+    }
+
     private func persist() {
         if let data = try? JSONEncoder().encode(links) { try? ResilientFile.write(data, to: url) }
+        onChange?()
     }
 }
