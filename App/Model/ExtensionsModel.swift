@@ -42,6 +42,8 @@ final class ExtensionsModel {
     /// Extensions with a newer commit on GitHub: name → commit.
     private(set) var updates: [String: String] = [:]
     private(set) var updating: Set<String> = []
+    /// Menu-bar commands macOS hid (no room in the menu bar), by "extension/command".
+    private(set) var hiddenMenuBars: Set<String> = []
 
     let store: ExtensionStore
     @ObservationIgnored weak var app: AppModel?
@@ -294,9 +296,10 @@ final class ExtensionsModel {
             do {
                 switch command.mode {
                 case .menuBar:
+                    // Open its menu right here: works even when macOS hides the icon behind the notch.
                     setMenuBar(installedExtension.name, command.name, enabled: true)
-                    menuBars["\(installedExtension.name)/\(command.name)"]?.refresh()
                     app.hideLauncher()
+                    menuBars["\(installedExtension.name)/\(command.name)"]?.popUpMenu()
                 case .noView:
                     app.hideLauncher()
                     let runtime = try await makeRuntime(installedExtension, command)
@@ -385,6 +388,10 @@ final class ExtensionsModel {
             guard parts.count == 2 else { continue }
             setMenuBar(parts[0], parts[1], enabled: true)
         }
+    }
+
+    func menuBarVisibilityChanged() {
+        hiddenMenuBars = Set(menuBars.filter { $0.value.isHiddenByMenuBar }.map(\.key))
     }
 
     func stopAll() {

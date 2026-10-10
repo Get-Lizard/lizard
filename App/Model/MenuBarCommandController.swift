@@ -15,6 +15,9 @@ final class MenuBarCommandController: NSObject, NSMenuDelegate {
     private var pending: ExtensionRuntime?
     private var timer: Timer?
     private var latest: ViewNode?
+    /// macOS hides status items that don't fit (e.g. behind the notch when the menu bar is full).
+    private(set) var isHiddenByMenuBar = false
+    private var warnedHidden = false
 
     init(installed: InstalledExtension, command: ExtensionManifest.Command, model: ExtensionsModel) {
         self.installed = installed
@@ -117,6 +120,39 @@ final class MenuBarCommandController: NSObject, NSMenuDelegate {
         item.button?.imagePosition = .imageLeading
         item.button?.toolTip = root.string("tooltip")
         rebuildMenu(item.menu!, from: root)
+        checkVisibility()
+    }
+
+    /// Shows the command's menu at the pointer — works even when the menu-bar icon is hidden.
+    func popUpMenu() {
+        guard let root = latest else {
+            refresh()
+            model?.app?.showHUD("Loading \(command.title)…")
+            return
+        }
+        let menu = NSMenu()
+        rebuildMenu(menu, from: root)
+        if let title = root.string("title"), !title.isEmpty {
+            let header = NSMenuItem.sectionHeader(title: "\(installed.title) — \(title)")
+            menu.insertItem(header, at: 0)
+        }
+        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+    }
+
+    /// After layout, see whether macOS actually put the item on screen; say so once if not.
+    private func checkVisibility() {
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            guard let window = statusItem?.button?.window else { return }
+            let onScreen = window.occlusionState.contains(.visible) && NSScreen.screens.contains { $0.frame.intersects(window.frame) }
+            let hidden = !onScreen
+            isHiddenByMenuBar = hidden
+            model?.menuBarVisibilityChanged()
+            if hidden, !warnedHidden {
+                warnedHidden = true
+                model?.app?.showHUD("\(command.title) is hidden — your menu bar is full. ⌘-drag icons out, or open it from Lizard.")
+            }
+        }
     }
 
     private func show(error: String) {

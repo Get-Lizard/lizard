@@ -90,6 +90,10 @@ private struct ExtensionRow: View {
                     Text(item.title).font(.headline)
                     if item.isExternal { Badge(text: "External", color: .orange) }
                     if extensions.updates[item.name] != nil { Badge(text: "Update", color: Brand.moss) }
+                    if extensions.hiddenMenuBars.contains(where: { $0.hasPrefix(item.name + "/") }) {
+                        Badge(text: "Hidden in menu bar", color: .secondary)
+                            .help("macOS hid this menu-bar item because the menu bar is full. ⌘-drag other icons out, or run the command from Lizard to open its menu.")
+                    }
                 }
                 Text("\(item.commands.count) commands · \(item.source.description)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
