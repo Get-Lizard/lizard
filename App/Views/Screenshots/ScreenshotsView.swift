@@ -136,14 +136,19 @@ private struct Thumbnail: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            AsyncThumbnail(url: item.url)
-                .frame(height: 90)
+            // A fixed-size frame the image fills and is clipped to, so a wide screenshot can't
+            // stretch the grid cell (it used to spill out of its column and get cut on the left).
+            Color.clear
                 .frame(maxWidth: .infinity)
+                .frame(height: 96)
+                .overlay { AsyncThumbnail(url: item.url) }
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(selected ? Brand.moss : Color.secondary.opacity(0.2), lineWidth: selected ? 2 : 0.5))
             Text(item.title).font(.caption).lineLimit(1)
             Text(item.date, style: .relative).font(.caption2).foregroundStyle(.tertiary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
 }
 
@@ -153,9 +158,16 @@ struct AsyncThumbnail: View {
     @State private var image: NSImage?
 
     var body: some View {
-        ZStack {
-            Color.secondary.opacity(0.08)
-            if let image { Image(nsImage: image).resizable().scaledToFill() }
+        GeometryReader { proxy in
+            ZStack {
+                Color.secondary.opacity(0.08)
+                if let image {
+                    Image(nsImage: image).resizable().scaledToFill()
+                        .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .clipped()
         }
         .task(id: url) {
             image = await Task.detached(priority: .utility) { () -> NSImage? in
@@ -176,7 +188,7 @@ private struct Detail: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
-                AsyncThumbnail(url: item.url).frame(height: 140).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                AsyncThumbnail(url: item.url).frame(maxWidth: .infinity).frame(height: 140).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 Text(item.title).font(.headline)
                 Label(item.category.title, systemImage: item.category.symbol).font(.caption).foregroundStyle(Brand.moss)
                 Text("\(item.app ?? "Unknown app") · \(item.width)×\(item.height) · \(item.date.formatted(date: .abbreviated, time: .shortened))")

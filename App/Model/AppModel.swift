@@ -215,11 +215,8 @@ final class AppModel {
 
     func hideLauncher() {
         launcherPanel?.hide()
-        // Coming back later starts fresh at search, like Raycast (after a short grace period).
-        Task {
-            try? await Task.sleep(for: .seconds(60))
-            if !isLauncherVisible { launcher.resetToRoot() }
-        }
+        // By default the launcher reopens exactly where it was left (same screen, note, query).
+        if !Preferences.resumeLauncher { launcher.resetToRoot() }
     }
 
     func open(_ target: OpenTarget) {

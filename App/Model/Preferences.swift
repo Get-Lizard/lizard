@@ -19,6 +19,12 @@ enum Preferences {
         set { UserDefaults.standard.set(newValue, forKey: workLogKey) }
     }
 
+    /// Reopen the launcher on the screen it was left on (default) instead of a fresh search.
+    static var resumeLauncher: Bool {
+        get { UserDefaults.standard.object(forKey: "Lizard.ResumeLauncher") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "Lizard.ResumeLauncher") }
+    }
+
     static var clipboardEnabled: Bool {
         get { UserDefaults.standard.object(forKey: clipboardEnabledKey) as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: clipboardEnabledKey) }

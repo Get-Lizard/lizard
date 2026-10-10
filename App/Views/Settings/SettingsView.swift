@@ -51,6 +51,7 @@ private struct GeneralSettings: View {
     @Environment(AppModel.self) private var app
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var clipboard = Preferences.clipboardEnabled
+    @State private var resume = Preferences.resumeLauncher
     @State private var mode = PerformanceMode.current
 
     var body: some View {
@@ -64,6 +65,8 @@ private struct GeneralSettings: View {
                             launchAtLogin = SMAppService.mainApp.status == .enabled
                         }
                     }
+                Toggle("Reopen where I left off", isOn: $resume)
+                    .onChange(of: resume) { _, on in Preferences.resumeLauncher = on }
                 Toggle("Keep clipboard history", isOn: $clipboard)
                     .onChange(of: clipboard) { _, on in
                         Preferences.clipboardEnabled = on
