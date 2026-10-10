@@ -86,6 +86,7 @@ final class MenuBarCommandController: NSObject, NSMenuDelegate {
         if let statusItem { return statusItem }
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.autosaveName = "lizard.\(installed.name).\(command.name)"
+        item.behavior = [.removalAllowed]
         let menu = NSMenu()
         menu.delegate = self
         item.menu = menu
@@ -101,7 +102,16 @@ final class MenuBarCommandController: NSObject, NSMenuDelegate {
     private func update(_ root: ViewNode) {
         latest = root
         let item = ensureItem()
-        item.button?.title = root.string("title").map { " \($0)" } ?? ""
+        let title = root.string("title") ?? ""
+        if let count = Int(title.trimmingCharacters(in: .whitespaces)), count > 0 {
+            // A pending count (e.g. PRs waiting on you) gets an attention colour.
+            item.button?.attributedTitle = NSAttributedString(string: " \(title)", attributes: [
+                .foregroundColor: NSColor.systemOrange, .font: NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .semibold),
+                .baselineOffset: 0.5,
+            ])
+        } else {
+            item.button?.title = title.isEmpty ? "" : " \(title)"
+        }
         item.button?.image = MenuImages.image(root["icon"], assets: installed.assetsDirectory, template: true, size: 16)
             ?? NSImage(systemSymbolName: "puzzlepiece.extension", accessibilityDescription: installed.title)
         item.button?.imagePosition = .imageLeading
