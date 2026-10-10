@@ -156,7 +156,7 @@ final class ExtensionsModel {
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
         panel.prompt = "Export Here"
-        panel.message = "The exported file contains the extension's code only — no preferences or stored data."
+        panel.message = "The exported file contains the extension's code only, with no preferences or stored data."
         NSApp.activate(ignoringOtherApps: true)
         guard panel.runModal() == .OK, let folder = panel.url else { return }
         Task {
@@ -344,7 +344,7 @@ final class ExtensionsModel {
             app.showHUD(params["title"]?.string ?? "")
         case "toast.show":
             if params["style"]?.string == "FAILURE" || !app.isLauncherVisible {
-                app.showHUD([params["title"]?.string, params["message"]?.string].compactMap { $0 }.joined(separator: " — "))
+                app.showHUD([params["title"]?.string, params["message"]?.string].compactMap { $0 }.joined(separator: ": "))
             }
         case "closeMainWindow":
             app.hideLauncher()
@@ -401,7 +401,7 @@ final class ExtensionsModel {
             UserDefaults.standard.set(true, forKey: "Lizard.MadeRoomOnce")
             Preferences.showMenuBarIcon = false
             app?.statusItem.setShown(false)
-            app?.showHUD("Made room in the menu bar by hiding Lizard's icon — ⌃Space still opens Lizard")
+            app?.showHUD("Made room in the menu bar by hiding Lizard's icon. ⌃Space still opens Lizard")
             for controller in menuBars.values { controller.recheckVisibility() }
         }
     }

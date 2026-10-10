@@ -49,7 +49,7 @@ public struct WorkLogStore: Sendable {
             let header = DateFormatter()
             header.calendar = calendar
             header.dateFormat = "LLLL yyyy"
-            try Data("# Work Log — \(header.string(from: date))\n\n\(line)".utf8).write(to: url, options: .atomic)
+            try Data("# Work Log: \(header.string(from: date))\n\n\(line)".utf8).write(to: url, options: .atomic)
         }
     }
 

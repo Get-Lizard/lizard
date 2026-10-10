@@ -13,7 +13,7 @@ public enum AIJob: Sendable, Equatable {
     public var title: String {
         switch self {
         case .summarize: "Summary"
-        case .summarizeWorkLog(_, let period): "Work summary — \(period)"
+        case .summarizeWorkLog(_, let period): "Work summary: \(period)"
         case .bragDoc: "Brag document"
         case .explain: "Explanation"
         case .rewrite(_, let style): "Rewritten (\(style))"

@@ -89,7 +89,7 @@ public actor ExtensionStore {
         let staging = try await GitHubAPI.downloadFolder(location, commit: commit, log: log)
         defer { try? FileManager.default.removeItem(at: staging) }
         guard FileManager.default.fileExists(atPath: staging.appending(path: "package.json").path) else {
-            throw ExtensionHostError.download("\(location.display) has no package.json — point to the extension's folder (owner/repo/path).")
+            throw ExtensionHostError.download("\(location.display) has no package.json. Point to the extension's folder (owner/repo/path).")
         }
         return try await installFolder(staging, source: .github(location, commit: commit))
     }

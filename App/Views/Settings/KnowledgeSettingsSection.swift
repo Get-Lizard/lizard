@@ -18,7 +18,7 @@ struct KnowledgeSettingsSection: View {
                     set: { on in
                         if on { knowledge.enabledSources.insert(source) } else { knowledge.enabledSources.remove(source) }
                     })) {
-                    Label("\(source.title) — \(knowledge.stats.documents[source] ?? 0) indexed", systemImage: source.symbol)
+                    Label("\(source.title): \(knowledge.stats.documents[source] ?? 0) indexed", systemImage: source.symbol)
                 }
             }
             Divider()

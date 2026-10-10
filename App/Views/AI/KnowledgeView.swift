@@ -213,7 +213,7 @@ private struct AnswerView: View {
                     }
                 }
                 if let provider = session.provider {
-                    Text("Answered by \(provider) from \(session.sources.count) passages on this Mac.").font(.caption2).foregroundStyle(.tertiary)
+                    Text("Answered by \(provider) from \(session.sources.count) \(session.sources.count == 1 ? "passage" : "passages") on this Mac.").font(.caption2).foregroundStyle(.tertiary)
                 }
             }
             .padding(16)

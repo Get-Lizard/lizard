@@ -76,7 +76,7 @@ final class ScreenshotService {
                 captured: temporary, date: .now, app: frontApp, bundleID: bundleID, label: label, text: text,
                 size: CGSize(width: cgImage.width, height: cgImage.height))
             items = await library.items
-            app?.showHUD("\(copyToClipboard ? "Copied · " : "")Saved to \(item.category.title) — \(item.title)")
+            app?.showHUD("\(copyToClipboard ? "Copied · " : "")Saved to \(item.category.title): \(item.title)")
             app?.knowledge.scheduleSync()
         } catch {
             app?.showHUD("Couldn't save the screenshot: \(error.localizedDescription)")

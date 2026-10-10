@@ -11,7 +11,7 @@ struct AISetupSection: View {
         VStack(alignment: .leading, spacing: 12) {
             engineRow(
                 symbol: "apple.intelligence", title: "Apple Intelligence",
-                detail: ai.appleAvailable ? "Ready — instant, nothing to download." : (AppleIntelligence.unavailableReason ?? "Unavailable"),
+                detail: ai.appleAvailable ? "Ready. Instant, nothing to download." : (AppleIntelligence.unavailableReason ?? "Unavailable"),
                 ok: ai.appleAvailable)
 
             VStack(alignment: .leading, spacing: 10) {

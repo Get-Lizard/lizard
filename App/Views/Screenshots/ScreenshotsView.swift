@@ -16,7 +16,7 @@ struct ScreenshotsView: View {
             HStack(spacing: 10) {
                 Button { app.launcher.pop() } label: { Image(systemName: "chevron.left") }.buttonStyle(.borderless)
                 Image(systemName: "camera.viewfinder").foregroundStyle(Brand.moss)
-                TextField("Search screenshots — even the text inside them…", text: $query)
+                TextField("Search screenshots, even the text inside them…", text: $query)
                     .textFieldStyle(.plain).font(.system(size: 17)).focused($focused)
                 Menu {
                     Button("Capture Area  ⌃⇧S") { service.capture(.area) }

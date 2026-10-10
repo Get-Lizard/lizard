@@ -216,6 +216,15 @@ enum MarkdownStyler {
         var blocks: [(range: NSRange, code: String)] = []
         var openFence: (start: Int, contentStart: Int)?
         var position = 0
+        // Front matter (--- … ---) at the top: small and dim, it's metadata.
+        if (text as String).hasPrefix("---\n") {
+            let end = text.range(of: "\n---", options: [], range: NSRange(location: 4, length: max(0, text.length - 4)))
+            if end.location != NSNotFound {
+                let range = NSRange(location: 0, length: min(text.length, NSMaxRange(end) + 1))
+                storage.addAttributes([.font: NSFont.monospacedSystemFont(ofSize: 11.5, weight: .regular), .foregroundColor: NSColor.tertiaryLabelColor], range: range)
+                position = NSMaxRange(range)
+            }
+        }
         while position < text.length {
             let lineRange = text.lineRange(for: NSRange(location: position, length: 0))
             let line = text.substring(with: lineRange)

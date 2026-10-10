@@ -136,8 +136,12 @@ final class KnowledgeService {
         var documents: [KnowledgeDocument] = []
         if sources.contains(.note) {
             for note in await app.notes.list() {
-                let text = await app.notes.read(note.url)
-                guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
+                // Index the body without front matter; tags go on their own line.
+                let metadata = NoteMetadata.parse(await app.notes.read(note.url))
+                // Front-matter tags aren't in the body text; inline #tags already are.
+                let missing = metadata.tags.filter { !metadata.body.lowercased().contains("#\($0)") }
+                let text = metadata.body + (missing.isEmpty ? "" : "\n" + missing.map { "#\($0)" }.joined(separator: " "))
+                guard !metadata.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
                 documents.append(KnowledgeDocument(id: note.url.path, source: .note, title: note.title, text: text, modified: note.modified, location: note.url.path))
             }
         }
@@ -150,7 +154,7 @@ final class KnowledgeService {
             for (day, dayEntries) in days {
                 let text = WorkLogStore.text(of: dayEntries.sorted { $0.date < $1.date })
                 documents.append(KnowledgeDocument(
-                    id: day.formatted(.iso8601.year().month().day()), source: .workLog, title: "Work log — \(day.formatted(titleFormat))",
+                    id: day.formatted(.iso8601.year().month().day()), source: .workLog, title: "Work log, \(day.formatted(titleFormat))",
                     text: text, modified: dayEntries.map(\.date).max() ?? day, location: app.workLog.file(for: day).path))
             }
         }
@@ -230,7 +234,7 @@ final class AskNotesSession {
                 return
             }
             guard !providers.isEmpty else {
-                phase = .failed("No AI is set up yet — the matching passages are listed below. Turn on an AI in Settings › AI to get answers.")
+                phase = .failed("No AI is set up yet. The matching passages are listed below. Turn on an AI in Settings › AI to get answers.")
                 return
             }
             phase = .answering

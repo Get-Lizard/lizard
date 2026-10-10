@@ -8,6 +8,16 @@ public protocol Embedder: Sendable {
     var displayName: String { get }
     /// Unit-length vectors, one per text.
     func embed(_ texts: [String], kind: EmbeddingKind) async throws -> [[Float]]
+    /// Passage size this model handles best.
+    var preferredChunkCharacters: Int { get }
+    /// Sentence models score single sentences well but blur multi-sentence passages: the index
+    /// then stores one vector per sentence and scores a passage by its best sentence.
+    var embedsSentences: Bool { get }
+}
+
+extension Embedder {
+    public var preferredChunkCharacters: Int { 900 }
+    public var embedsSentences: Bool { false }
 }
 
 /// Queries and passages are phrased differently for asymmetric models (e5, Qwen3-Embedding).
@@ -25,8 +35,10 @@ public enum EmbedderError: Error, LocalizedError {
 /// Apple's built-in English sentence embedding: no download, decent for English, the fallback
 /// until the multilingual MLX model is downloaded.
 public final class AppleSentenceEmbedder: Embedder, @unchecked Sendable {
-    public let identifier = "apple.sentence.en.v1"
+    public let identifier = "apple.sentence.en.v3"
     public let displayName = "Apple sentence embedding (English)"
+    public let preferredChunkCharacters = 600
+    public let embedsSentences = true
     private let lock = NSLock()
     private let embedding: NLEmbedding?
 

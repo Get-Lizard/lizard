@@ -133,7 +133,7 @@ final class MenuBarCommandController: NSObject, NSMenuDelegate {
         let menu = NSMenu()
         rebuildMenu(menu, from: root)
         if let title = root.string("title"), !title.isEmpty {
-            let header = NSMenuItem.sectionHeader(title: "\(installed.title) — \(title)")
+            let header = NSMenuItem.sectionHeader(title: "\(installed.title): \(title)")
             menu.insertItem(header, at: 0)
         }
         menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
@@ -155,7 +155,7 @@ final class MenuBarCommandController: NSObject, NSMenuDelegate {
             model?.menuBarVisibilityChanged()
             if hidden, !warnedHidden, model?.app?.statusItem.isShown != true {
                 warnedHidden = true
-                model?.app?.showHUD("\(command.title) is hidden — your menu bar is full. ⌘-drag icons out, or open it from Lizard.")
+                model?.app?.showHUD("\(command.title) is hidden because your menu bar is full. ⌘-drag icons out, or open it from Lizard.")
             }
         }
     }

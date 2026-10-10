@@ -32,8 +32,8 @@ public enum AskNotes {
 
     /// Drops passages that are much weaker than the best one, so unrelated notes don't reach the prompt.
     public static func relevant(_ hits: [KnowledgeHit]) -> [KnowledgeHit] {
-        guard let best = hits.map(\.similarity).max(), best > 0 else { return hits }
-        return hits.filter { $0.similarity == 0 || $0.similarity >= best * 0.8 }
+        guard let best = hits.map(\.score).max(), best > 0 else { return hits }
+        return hits.filter { $0.score >= best * 0.7 }
     }
 
     /// True when a reply is nothing but citation markers ("[1] [2]"), which small models sometimes produce.

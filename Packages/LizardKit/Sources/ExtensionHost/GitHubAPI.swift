@@ -14,7 +14,7 @@ enum GitHubAPI {
         guard status == 200 else {
             throw ExtensionHostError.download(
                 status == 404 ? "not found on GitHub (check the repo, folder and branch)"
-                    : status == 403 || status == 429 ? "GitHub rate limit reached — sign in to GitHub in Settings › Accounts" : "GitHub HTTP \(status)")
+                    : status == 403 || status == 429 ? "GitHub rate limit reached. Sign in to GitHub in Settings › Accounts" : "GitHub HTTP \(status)")
         }
         return try JSONSerialization.jsonObject(with: data)
     }
@@ -57,7 +57,7 @@ enum GitHubAPI {
         else { throw ExtensionHostError.download("\(location.display) wasn't found") }
         let files = entries.filter { ($0["type"] as? String) == "blob" }.compactMap { $0["path"] as? String }
             .filter { !$0.hasPrefix("node_modules/") && !$0.hasPrefix("metadata/") && !$0.hasPrefix("media/") && !$0.hasPrefix(".github/") }
-        guard files.count <= 2_000 else { throw ExtensionHostError.download("that folder has \(files.count) files — point to a single extension's folder") }
+        guard files.count <= 2_000 else { throw ExtensionHostError.download("that folder has \(files.count) files. Point to a single extension's folder") }
         let staging = FileManager.default.temporaryDirectory.appending(path: "lizard-ext-\(UUID().uuidString)", directoryHint: .isDirectory)
         log("Downloading \(files.count) files…")
         let prefix = location.path.isEmpty ? "" : location.path + "/"

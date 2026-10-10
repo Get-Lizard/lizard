@@ -58,12 +58,12 @@ public struct LocalModel: Sendable, Hashable, Identifiable {
     /// One plain-language sentence about what this model is like to use.
     public var plainDescription: String {
         switch (qualityStars, speedStars) {
-        case (5, _): "The smartest option — best answers, needs a big Mac."
-        case (4, 4...): "Smart and quick — a great everyday choice."
-        case (4, _): "Very capable — explains code and reasons well."
+        case (5, _): "The smartest option: best answers, needs a big Mac."
+        case (4, 4...): "Smart and quick, a great everyday choice."
+        case (4, _): "Very capable. Explains code and reasons well."
         case (3, 4...): "Quick and dependable for summaries and rewrites."
         case (3, _): "Good for most quick jobs."
-        default: "Light and fast — one-line summaries on smaller Macs."
+        default: "Light and fast. One-line summaries on smaller Macs."
         }
     }
 }
@@ -77,7 +77,7 @@ public enum ModelFit: Int, Sendable, Comparable {
         switch self {
         case .great: "Runs great on this Mac"
         case .good: "Runs well on this Mac"
-        case .tight: "Tight fit — other apps may slow down"
+        case .tight: "Tight fit, other apps may slow down"
         case .tooLarge: "Too large for this Mac"
         }
     }

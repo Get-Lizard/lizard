@@ -124,6 +124,14 @@ final class AppModel {
             }
         }
         if arguments.contains("--show-settings") { openSettings() }
+        // Marketing/test captures: --show-notes, --show-translate <text>, --show-route <name>.
+        if arguments.contains("--show-notes") {
+            Task { try? await Task.sleep(for: .seconds(2)); showLauncher(); launcher.push(.notes(nil)) }
+        }
+        if let index = arguments.firstIndex(of: "--show-translate"), index + 1 < arguments.count {
+            let text = arguments[index + 1]
+            Task { try? await Task.sleep(for: .seconds(2)); showLauncher(); launcher.push(.translate(text)) }
+        }
         for flag in ["--show-knowledge", "--ask-notes"] {
             if let index = arguments.firstIndex(of: flag), index + 1 < arguments.count {
                 let query = arguments[index + 1]
@@ -365,7 +373,7 @@ final class AppModel {
             command("ai-chats", "AI Chat History", "Past conversations", "bubble.left.and.text.bubble.right") { [weak self] in self?.launcher.push(.chats) },
             command("clipboard", "Clipboard History", "Search and paste anything you copied", "doc.on.clipboard") { [weak self] in self?.launcher.push(.clipboard) },
             command("notes", "Search Notes", "Your Markdown notes", "note.text") { [weak self] in self?.launcher.push(.notes(nil)) },
-            command("semantic-search", "Search by Meaning", "Notes, work log, clipboard and chats — finds paraphrases too", "text.magnifyingglass") { [weak self] in
+            command("semantic-search", "Search by Meaning", "Notes, work log, clipboard and chats. Finds paraphrases too", "text.magnifyingglass") { [weak self] in
                 self?.launcher.push(.knowledge(query: "", ask: false))
             },
             command("ask-notes", "Ask Your Notes", "Answers from your own notes and logs, with sources", "sparkle.magnifyingglass") { [weak self] in
@@ -389,7 +397,7 @@ final class AppModel {
             command("explain-clipboard", "Explain Clipboard", "Explain copied code, errors or commands", "questionmark.bubble") { [weak self] in
                 self?.launcher.push(.aiJob(.explain(text: NSPasteboard.general.string(forType: .string) ?? "")))
             },
-            command("screenshots", "Screenshots", "Your captures, filed by category — search the text inside them", "photo.on.rectangle.angled", .indigo) { [weak self] in
+            command("screenshots", "Screenshots", "Your captures, filed by category, with searchable text", "photo.on.rectangle.angled", .indigo) { [weak self] in
                 self?.launcher.push(.screenshots)
             },
             command("capture-area", "Capture Area", "Screenshot a region; Lizard names and files it", "plus.viewfinder", .indigo, keepOpen: false) { [weak self] in
@@ -609,7 +617,7 @@ final class AppModel {
         pasteboardMonitor?.markOwnWrite()
         hideLauncher()
         if !AutoPaste.paste(into: previousApp) {
-            showHUD("Copied — allow Accessibility in Setup to paste directly")
+            showHUD("Copied. Allow Accessibility in Setup to paste directly")
         }
     }
 

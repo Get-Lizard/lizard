@@ -84,10 +84,57 @@ struct HashEmbedder: Embedder {
     }
 
     @Test func dropsWeakPassages() {
-        func hit(_ id: String, _ similarity: Double) -> KnowledgeHit {
-            KnowledgeHit(documentKey: id, source: .note, title: id, location: nil, modified: .now, ordinal: 0, text: "", heading: nil, score: 1, similarity: similarity)
+        func hit(_ id: String, _ score: Double) -> KnowledgeHit {
+            KnowledgeHit(documentKey: id, source: .note, title: id, location: nil, modified: .now, ordinal: 0, text: "", heading: nil, score: score, similarity: score)
         }
-        let kept = AskNotes.relevant([hit("a", 0.6), hit("b", 0.3), hit("c", 0)])
+        let kept = AskNotes.relevant([hit("a", 0.9), hit("b", 0.3), hit("c", 0.7)])
         #expect(kept.map(\.documentKey) == ["a", "c"])
+    }
+}
+
+@Suite struct RetrievalRegressionTests {
+    /// The Ask Your Notes demo: the incident note must win for a paraphrased "how did I fix" question.
+    @Test func incidentNoteWinsForFixQuestion() async throws {
+        let embedder = AppleSentenceEmbedder()
+        guard embedder.isAvailable else { return }
+        let index = try KnowledgeIndex(url: FileManager.default.temporaryDirectory.appending(path: "rr-\(UUID()).sqlite"))
+        let incident = """
+            # Checkout requests hanging
+
+            After the Tuesday deploy the cache client kept sockets open, the connection pool ran dry and checkout requests hung for 30 seconds.
+
+            ## Fix
+
+            ```ts
+            const cache = createClient({ maxRetriesPerRequest: 2, poolSize: 50, idleTimeoutMs: 60_000 })
+            ```
+
+            - [x] Raise the pool from 10 to 50
+            - [x] Close idle sockets after 60s
+            """
+        try await index.sync([
+            KnowledgeDocument(id: "incident", source: .note, title: "Checkout requests hanging", text: incident, modified: .now),
+            KnowledgeDocument(id: "pods", source: .note, title: "Watch pods", text: "# Watch pods\n```sh\nkubectl get pods -n checkout -w\n```", modified: .now),
+            KnowledgeDocument(id: "release", source: .note, title: "Release checklist", text: "# Release checklist\n1. Bump the version and tag v0.2.0\n2. Wait for notarization\n3. Check the Homebrew cask updated", modified: .now),
+        ], sources: [.note], embedder: embedder)
+        let hits = try await index.search("how did I fix the hanging checkout requests?", embedder: embedder)
+        for hit in hits { print(hit.documentKey, hit.score, hit.similarity) }
+        #expect(hits.first?.documentKey == "note:incident")
+        #expect(AskNotes.relevant(hits).contains { $0.documentKey == "note:incident" })
+
+        // A pure paraphrase (no shared keywords) must still find it by meaning.
+        try await index.sync([
+            KnowledgeDocument(id: "ideas", source: .note, title: "Onboarding ideas", text: "# Onboarding ideas\nShow the gecko first, then ask for one shortcut. Keep setup under a minute.", modified: .now),
+        ] + [
+            KnowledgeDocument(id: "incident", source: .note, title: "Checkout requests hanging", text: incident, modified: .now),
+            KnowledgeDocument(id: "pods", source: .note, title: "Watch pods", text: "# Watch pods\n```sh\nkubectl get pods -n checkout -w\n```", modified: .now),
+        ], sources: [.note], embedder: embedder)
+        let paraphrase = try await index.search("that redis timeout problem", embedder: embedder)
+        for hit in paraphrase { print("paraphrase", hit.documentKey, hit.score, hit.similarity) }
+        // Apple's English sentence model is modest; the multilingual MLX model does better. Top 2 here.
+        #expect(paraphrase.prefix(2).contains { $0.documentKey == "note:incident" })
+        for query in ["payments were slow", "why was checkout stuck after the deploy", "that time the pool ran out"] {
+            #expect(try await index.search(query, embedder: embedder).first?.documentKey == "note:incident")
+        }
     }
 }

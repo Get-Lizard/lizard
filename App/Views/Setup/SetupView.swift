@@ -129,7 +129,7 @@ private struct WelcomePage: View {
             LizardMarkView(size: 120)
                 .padding(.top, 24)
             LizardWordmark(size: 40)
-            Text("A fast, private launcher for your Mac.\nApps, notes, clipboard, AI and extensions — one shortcut away.")
+            Text("A fast, private launcher for your Mac.\nApps, notes, clipboard, AI and extensions, one shortcut away.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
             HStack(spacing: 18) {
@@ -176,7 +176,7 @@ private struct PermissionsPage: View {
                 .foregroundStyle(app.setup.accessibilityGranted ? Brand.moss : .orange)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Accessibility").font(.headline)
-                Text(app.setup.accessibilityGranted ? "Allowed — auto-paste is on." : "Needed for auto-paste. Everything else works without it.")
+                Text(app.setup.accessibilityGranted ? "Allowed. Auto-paste is on." : "Needed for auto-paste. Everything else works without it.")
                     .font(.callout).foregroundStyle(.secondary)
             }
             Spacer()
@@ -202,7 +202,7 @@ private struct FoldersPage: View {
     @State private var workLog = Preferences.workLogFolder
 
     var body: some View {
-        PageHeader(title: "Where your notes live", subtitle: "Notes and work logs are plain Markdown files — open them in any editor, sync them however you like.")
+        PageHeader(title: "Where your notes live", subtitle: "Notes and work logs are plain Markdown files. Open them in any editor and sync them however you like.")
         row(title: "Notes", symbol: "note.text", url: notes) {
             if let url = app.setup.choose(folder: notes, prompt: "Use for Notes") { notes = url; Preferences.notesFolder = url }
         }
@@ -238,7 +238,7 @@ private struct AIPage: View {
 
 private struct GitHubPage: View {
     var body: some View {
-        PageHeader(title: "GitHub in your menu bar", subtitle: "Sign in once with your browser — no tokens. Lizard adds GitHub Review Requests: pull requests waiting on you, right in the menu bar.")
+        PageHeader(title: "GitHub in your menu bar", subtitle: "Sign in once with your browser, no tokens. Lizard adds GitHub Review Requests: pull requests waiting on you, right in the menu bar.")
         GitHubConnectSection()
     }
 }
@@ -248,7 +248,7 @@ private struct RaycastPage: View {
     @State private var showImporter = false
 
     var body: some View {
-        PageHeader(title: "Coming from Raycast?", subtitle: "Lizard found Raycast on this Mac. Bring your extensions along — they run in Lizard as they are — and import your quicklinks.")
+        PageHeader(title: "Coming from Raycast?", subtitle: "Lizard found Raycast on this Mac. Bring your extensions along (they run in Lizard as they are) and import your quicklinks.")
         RaycastImportView(onDone: {}).environment(app).frame(minHeight: 330)
     }
 }
@@ -260,10 +260,10 @@ private struct DonePage: View {
         VStack(spacing: 16) {
             LizardMarkView(size: 96, summon: app.setup.hotkeyTestPassed)
                 .padding(.top, 20)
-            Text(app.setup.hotkeyTestPassed ? "That's it — Lizard is ready." : "Try your shortcut now")
+            Text(app.setup.hotkeyTestPassed ? "That's it. Lizard is ready." : "Try your shortcut now")
                 .font(.system(size: 24, weight: .semibold, design: .rounded))
             if let shortcut = KeyboardShortcuts.getShortcut(for: .toggleLauncher) {
-                Text(app.setup.hotkeyTestPassed ? "Press \(shortcut.description) any time." : "Press \(shortcut.description) — the launcher opens over any app.")
+                Text(app.setup.hotkeyTestPassed ? "Press \(shortcut.description) any time." : "Press \(shortcut.description). The launcher opens over any app.")
                     .foregroundStyle(.secondary)
                 Text(shortcut.description)
                     .font(.system(size: 34, weight: .medium, design: .rounded))

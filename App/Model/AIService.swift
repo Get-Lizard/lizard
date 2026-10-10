@@ -117,10 +117,10 @@ final class AIService {
                 if Task.isCancelled { throw CancellationError() }
                 let stalled = job.isCancelled
                 guard stalled, attempt < 3 else {
-                    if stalled { throw AIProviderError.unavailable("The download stopped making progress. Check your connection and try again — it resumes where it left off.") }
+                    if stalled { throw AIProviderError.unavailable("The download stopped making progress. Check your connection and try again. It resumes where it left off.") }
                     throw error
                 }
-                download = .running(fraction: 0, text: "Connection stalled — retrying (\(attempt + 1) of 3)…")
+                download = .running(fraction: 0, text: "Connection stalled, retrying (\(attempt + 1) of 3)…")
             }
         }
     }

@@ -30,8 +30,9 @@ public actor KnowledgeIndex {
     }
 
     nonisolated(unsafe) private var db: OpaquePointer?
-    /// chunk id → (vector, document key); loaded lazily, kept in sync.
-    private var vectors: [Int64: (vector: [Float], document: String)]?
+    /// chunk id → (vectors, document key); loaded lazily, kept in sync. Several vectors per chunk
+    /// for sentence models (one per sentence).
+    private var vectors: [Int64: (vectors: [[Float]], document: String)]?
     private let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
     public init(url: URL = AppPaths.applicationSupport.appending(path: "knowledge.sqlite")) throws {
@@ -44,6 +45,8 @@ public actor KnowledgeIndex {
             CREATE TABLE IF NOT EXISTS chunks(
                 id INTEGER PRIMARY KEY AUTOINCREMENT, doc_key TEXT NOT NULL, ordinal INTEGER NOT NULL, heading TEXT, text TEXT NOT NULL, vector BLOB NOT NULL);
             CREATE INDEX IF NOT EXISTS chunks_doc ON chunks(doc_key);
+            CREATE TABLE IF NOT EXISTS chunk_vectors(chunk_id INTEGER NOT NULL, vector BLOB NOT NULL);
+            CREATE INDEX IF NOT EXISTS chunk_vectors_chunk ON chunk_vectors(chunk_id);
             CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(title, text, tokenize='unicode61 remove_diacritics 2');
             """)
     }
@@ -102,7 +105,7 @@ public actor KnowledgeIndex {
         progress: (@Sendable (Progress) -> Void)? = nil
     ) async throws -> Int {
         if try meta("embedder") != embedder.identifier {
-            try exec("DELETE FROM chunks; DELETE FROM chunks_fts; DELETE FROM documents;")
+            try exec("DELETE FROM chunks; DELETE FROM chunk_vectors; DELETE FROM chunks_fts; DELETE FROM documents;")
             try setMeta("embedder", embedder.identifier)
             vectors = nil
         }
@@ -134,7 +137,10 @@ public actor KnowledgeIndex {
         var removed: [Int64] = []
         while sqlite3_step(ids) == SQLITE_ROW { removed.append(sqlite3_column_int64(ids, 0)) }
         sqlite3_finalize(ids)
-        for id in removed { try exec("DELETE FROM chunks_fts WHERE rowid = \(id)") }
+        for id in removed {
+            try exec("DELETE FROM chunks_fts WHERE rowid = \(id)")
+            try exec("DELETE FROM chunk_vectors WHERE chunk_id = \(id)")
+        }
         for (table, column) in [("chunks", "doc_key"), ("documents", "key")] {
             let statement = try prepare("DELETE FROM \(table) WHERE \(column) = ?")
             bind(statement, 1, key)
@@ -145,14 +151,24 @@ public actor KnowledgeIndex {
     }
 
     private func index(_ document: KnowledgeDocument, embedder: any Embedder) async throws {
-        let chunks = TextChunker.chunks(for: document.text)
-        // Each passage carries its title (and heading) so short passages still say what they're about.
-        let inputs = chunks.map { chunk in
-            [document.title, chunk.heading].compactMap { $0 }.joined(separator: " — ") + "\n" + chunk.text
+        let chunks = TextChunker.chunks(for: document.text, targetCharacters: embedder.preferredChunkCharacters, overlap: embedder.preferredChunkCharacters / 6)
+        // What to embed per chunk: the whole passage (with its title and heading), or, for sentence
+        // models, the title plus each sentence on its own.
+        let perChunk: [[String]] = chunks.map { chunk in
+            let context = [document.title, chunk.heading].compactMap { $0 }.joined(separator: " — ")
+            guard embedder.embedsSentences else { return [context + "\n" + chunk.text] }
+            return [context] + Self.sentences(in: chunk.text)
         }
-        var embeddings: [[Float]] = []
-        for start in stride(from: 0, to: inputs.count, by: 16) {
-            embeddings += try await embedder.embed(Array(inputs[start..<min(start + 16, inputs.count)]), kind: .passage)
+        let flat = perChunk.flatMap { $0 }
+        var flatVectors: [[Float]] = []
+        for start in stride(from: 0, to: flat.count, by: 16) {
+            flatVectors += try await embedder.embed(Array(flat[start..<min(start + 16, flat.count)]), kind: .passage)
+        }
+        var embeddings: [[[Float]]] = []
+        var cursor = 0
+        for texts in perChunk {
+            embeddings.append(Array(flatVectors[cursor..<min(cursor + texts.count, flatVectors.count)]))
+            cursor += texts.count
         }
         try remove(document.key)
         try exec("BEGIN")
@@ -166,7 +182,8 @@ public actor KnowledgeIndex {
             bind(insertDocument, 6, document.contentHash)
             sqlite3_step(insertDocument)
             sqlite3_finalize(insertDocument)
-            for (chunk, vector) in zip(chunks, embeddings) {
+            for (chunk, chunkVectors) in zip(chunks, embeddings) {
+                guard let vector = chunkVectors.first else { continue }
                 let insert = try prepare("INSERT INTO chunks(doc_key, ordinal, heading, text, vector) VALUES (?,?,?,?,?)")
                 bind(insert, 1, document.key)
                 sqlite3_bind_int(insert, 2, Int32(chunk.ordinal))
@@ -182,7 +199,16 @@ public actor KnowledgeIndex {
                 bind(fts, 3, chunk.text)
                 sqlite3_step(fts)
                 sqlite3_finalize(fts)
-                vectors?[id] = (vector, document.key)
+                if chunkVectors.count > 1 {
+                    for extra in chunkVectors {
+                        let row = try prepare("INSERT INTO chunk_vectors(chunk_id, vector) VALUES (?,?)")
+                        sqlite3_bind_int64(row, 1, id)
+                        sqlite3_bind_blob(row, 2, extra, Int32(extra.count * MemoryLayout<Float>.size), transient)
+                        sqlite3_step(row)
+                        sqlite3_finalize(row)
+                    }
+                }
+                vectors?[id] = (chunkVectors, document.key)
             }
             try exec("COMMIT")
         } catch {
@@ -193,19 +219,49 @@ public actor KnowledgeIndex {
 
     // MARK: Search
 
-    private func loadVectors() throws -> [Int64: (vector: [Float], document: String)] {
+    private func loadVectors() throws -> [Int64: (vectors: [[Float]], document: String)] {
         if let vectors { return vectors }
-        var loaded: [Int64: (vector: [Float], document: String)] = [:]
-        let statement = try prepare("SELECT id, doc_key, vector FROM chunks")
-        defer { sqlite3_finalize(statement) }
-        while sqlite3_step(statement) == SQLITE_ROW {
-            let count = Int(sqlite3_column_bytes(statement, 2)) / MemoryLayout<Float>.size
-            guard count > 0, let blob = sqlite3_column_blob(statement, 2) else { continue }
-            let vector = Array(UnsafeBufferPointer(start: blob.assumingMemoryBound(to: Float.self), count: count))
-            loaded[sqlite3_column_int64(statement, 0)] = (vector, column(statement, 1) ?? "")
+        func floats(_ statement: OpaquePointer?, _ column: Int32) -> [Float]? {
+            let count = Int(sqlite3_column_bytes(statement, column)) / MemoryLayout<Float>.size
+            guard count > 0, let blob = sqlite3_column_blob(statement, column) else { return nil }
+            return Array(UnsafeBufferPointer(start: blob.assumingMemoryBound(to: Float.self), count: count))
         }
+        var loaded: [Int64: (vectors: [[Float]], document: String)] = [:]
+        let statement = try prepare("SELECT id, doc_key, vector FROM chunks")
+        while sqlite3_step(statement) == SQLITE_ROW {
+            guard let vector = floats(statement, 2) else { continue }
+            loaded[sqlite3_column_int64(statement, 0)] = ([vector], column(statement, 1) ?? "")
+        }
+        sqlite3_finalize(statement)
+        var extra: [Int64: [[Float]]] = [:]
+        let rows = try prepare("SELECT chunk_id, vector FROM chunk_vectors")
+        while sqlite3_step(rows) == SQLITE_ROW {
+            if let vector = floats(rows, 1) { extra[sqlite3_column_int64(rows, 0), default: []].append(vector) }
+        }
+        sqlite3_finalize(rows)
+        for (id, list) in extra where loaded[id] != nil { loaded[id]!.vectors = list }
         vectors = loaded
         return loaded
+    }
+
+    /// Sentences (and list items / lines) worth embedding on their own.
+    static func sentences(in text: String) -> [String] {
+        var result: [String] = []
+        for line in text.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("```") || trimmed.isEmpty { continue }
+            var current = ""
+            for character in trimmed {
+                current.append(character)
+                if ".!?".contains(character), current.count > 20 {
+                    result.append(current.trimmingCharacters(in: .whitespaces))
+                    current = ""
+                }
+            }
+            let rest = current.trimmingCharacters(in: .whitespaces)
+            if rest.count >= 8 { result.append(rest) }
+        }
+        return Array(result.prefix(24))
     }
 
     /// Hybrid search. `perDocument` caps passages from the same document so one long note
@@ -222,32 +278,47 @@ public actor KnowledgeIndex {
         var similarities: [Int64: Float] = [:]
         var vectorRanked: [(Int64, Float)] = []
         if !queryVector.isEmpty {
-            for (id, entry) in try loadVectors() where entry.vector.count == queryVector.count {
-                var score: Float = 0
-                vDSP_dotpr(entry.vector, 1, queryVector, 1, &score, vDSP_Length(queryVector.count))
-                similarities[id] = score
+            for (id, entry) in try loadVectors() {
+                var best: Float = -1
+                for vector in entry.vectors where vector.count == queryVector.count {
+                    var score: Float = 0
+                    vDSP_dotpr(vector, 1, queryVector, 1, &score, vDSP_Length(queryVector.count))
+                    best = max(best, score)
+                }
+                if best > -1 { similarities[id] = best }
             }
             vectorRanked = similarities.sorted { $0.value > $1.value }.prefix(60).map { ($0.key, $0.value) }
         }
 
-        // Keyword ranking (BM25), prefix-matching each word.
-        var keywordRanked: [Int64] = []
-        let words = trimmed.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).filter { $0.count > 1 }
+        // Keyword ranking (BM25), prefix-matching each meaningful word.
+        var keywordScores: [Int64: Double] = [:]
+        let words = trimmed.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+            .filter { $0.count > 1 && !Self.stopWords.contains(String($0)) }
             .map { "\"\($0.replacingOccurrences(of: "\"", with: ""))\"*" }
         if !words.isEmpty {
-            let statement = try prepare("SELECT rowid FROM chunks_fts WHERE chunks_fts MATCH ? ORDER BY bm25(chunks_fts) LIMIT 60")
+            let statement = try prepare("SELECT rowid, bm25(chunks_fts) FROM chunks_fts WHERE chunks_fts MATCH ? ORDER BY bm25(chunks_fts) LIMIT 60")
             bind(statement, 1, words.joined(separator: " OR "))
-            while sqlite3_step(statement) == SQLITE_ROW { keywordRanked.append(sqlite3_column_int64(statement, 0)) }
+            while sqlite3_step(statement) == SQLITE_ROW {
+                // SQLite's bm25 is negative; more negative = better.
+                keywordScores[sqlite3_column_int64(statement, 0)] = -sqlite3_column_double(statement, 1)
+            }
             sqlite3_finalize(statement)
         }
 
-        // Reciprocal-rank fusion (k = 60), weighted toward meaning; weak semantic matches drop out.
+        // Blend: meaning (cosine, rescaled over the candidates) + keyword strength (BM25 relative to
+        // the best keyword match). Rank-only fusion ignored *how much* better a keyword match was.
+        let candidates = Set(vectorRanked.map(\.0)).union(keywordScores.keys)
+        let bestKeyword = keywordScores.values.max() ?? 0
+        let maxSim = Double(vectorRanked.first?.1 ?? 0)
         var fused: [Int64: Double] = [:]
-        for (rank, entry) in vectorRanked.enumerated() where entry.1 > 0.25 {
-            fused[entry.0, default: 0] += 1.0 / Double(60 + rank)
-        }
-        for (rank, id) in keywordRanked.enumerated() {
-            fused[id, default: 0] += 0.8 / Double(60 + rank)
+        for id in candidates {
+            let similarity = Double(similarities[id] ?? 0)
+            // Meaning relative to the best match (keeps paraphrase ordering, scale-free across models).
+            let meaning = maxSim > 0 ? max(0, similarity) / maxSim : 0
+            let keyword = bestKeyword > 0 ? (keywordScores[id] ?? 0) / bestKeyword : 0
+            // Weak meaning matches only count when keywords back them up.
+            guard similarity > 0.2 || keyword > 0 else { continue }
+            fused[id] = 0.55 * meaning + 0.45 * keyword
         }
         let ordered = fused.sorted { $0.value > $1.value }
 
@@ -275,6 +346,13 @@ public actor KnowledgeIndex {
         return hits
     }
 
+    /// Words that carry no meaning for keyword matching (English + Portuguese basics).
+    static let stopWords: Set<String> = [
+        "the", "a", "an", "and", "or", "of", "to", "in", "on", "for", "with", "is", "it", "i", "my", "me", "we", "you", "how", "what",
+        "did", "do", "does", "was", "were", "be", "that", "this", "when", "where", "why", "which", "at", "by", "from", "as", "about",
+        "o", "os", "as", "um", "uma", "de", "do", "da", "dos", "das", "e", "em", "no", "na", "que", "como", "eu", "para", "por", "com",
+    ]
+
     public func stats() throws -> Stats {
         var stats = Stats()
         let statement = try prepare("SELECT source, COUNT(*) FROM documents GROUP BY source")
@@ -291,7 +369,7 @@ public actor KnowledgeIndex {
 
     /// Forgets everything (the next sync rebuilds it).
     public func reset() throws {
-        try exec("DELETE FROM chunks; DELETE FROM chunks_fts; DELETE FROM documents; DELETE FROM meta;")
+        try exec("DELETE FROM chunks; DELETE FROM chunk_vectors; DELETE FROM chunks_fts; DELETE FROM documents; DELETE FROM meta;")
         vectors = nil
     }
 }

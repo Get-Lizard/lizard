@@ -77,7 +77,7 @@ struct ClipboardView: View {
                 Divider()
                 Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 4) {
                     GridRow { Text("Type").foregroundStyle(.secondary); Text(item.kind.rawValue.capitalized) }
-                    GridRow { Text("From").foregroundStyle(.secondary); Text(app.appName(forBundleID: item.sourceApp) ?? "—") }
+                    GridRow { Text("From").foregroundStyle(.secondary); Text(app.appName(forBundleID: item.sourceApp) ?? "Unknown") }
                     GridRow { Text("Copied").foregroundStyle(.secondary); Text(item.created, style: .relative) }
                     GridRow { Text("Size").foregroundStyle(.secondary); Text(ByteCountFormatter.string(fromByteCount: Int64(item.byteSize), countStyle: .file)) }
                 }

@@ -60,7 +60,7 @@ struct LizardCLI {
             let author = args.count >= 3 ? args[2] : NSUserName()
             let title = args[1].split(separator: "-").map { $0.capitalized }.joined(separator: " ")
             let folder = try ExtensionValidator.scaffold(name: args[1], title: title, author: author, in: URL(filePath: FileManager.default.currentDirectoryPath))
-            print("created \(folder.path) — add assets/icon.png (512×512), then `lizardcli ext validate \(args[1])`")
+            print("created \(folder.path). Add assets/icon.png (512×512), then `lizardcli ext validate \(args[1])`")
         case "updates":
             let updates = await store.availableUpdates()
             if updates.isEmpty { print("everything is up to date") }
