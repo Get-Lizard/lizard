@@ -10,6 +10,7 @@ extension KeyboardShortcuts.Name {
     static let clipboard = Self("clipboardHistory", default: .init(.v, modifiers: [.option, .shift]))
     static let askAI = Self("askAI", default: .init(.a, modifiers: [.option, .shift]))
     static let newNote = Self("newNote", default: .init(.n, modifiers: [.option, .shift]))
+    static let screenshotArea = Self("screenshotArea", default: .init(.s, modifiers: [.control, .shift]))
 }
 
 struct HotkeyAction: Identifiable {
@@ -25,6 +26,7 @@ struct HotkeyAction: Identifiable {
         HotkeyAction(name: .clipboard, title: "Clipboard History", detail: "Search and paste anything you copied.", symbol: "doc.on.clipboard"),
         HotkeyAction(name: .askAI, title: "Ask AI", detail: "Chat with the on-device AI.", symbol: "sparkles"),
         HotkeyAction(name: .newNote, title: "New Note", detail: "Start a markdown note.", symbol: "square.and.pencil"),
+        HotkeyAction(name: .screenshotArea, title: "Capture Screenshot", detail: "Capture an area; Lizard names and files it.", symbol: "camera.viewfinder"),
     ]
 
     static let windows: [HotkeyAction] = [

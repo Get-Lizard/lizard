@@ -3,7 +3,7 @@ import Foundation
 
 /// Where a piece of knowledge comes from.
 public enum KnowledgeSource: String, Sendable, Codable, CaseIterable, Identifiable {
-    case note, workLog, clipboard, chat
+    case note, workLog, clipboard, chat, screenshot
 
     public var id: String { rawValue }
 
@@ -13,6 +13,7 @@ public enum KnowledgeSource: String, Sendable, Codable, CaseIterable, Identifiab
         case .workLog: "Work Log"
         case .clipboard: "Clipboard"
         case .chat: "AI Chats"
+        case .screenshot: "Screenshots"
         }
     }
 
@@ -22,6 +23,7 @@ public enum KnowledgeSource: String, Sendable, Codable, CaseIterable, Identifiab
         case .workLog: "list.bullet.clipboard"
         case .clipboard: "doc.on.clipboard"
         case .chat: "bubble.left.and.text.bubble.right"
+        case .screenshot: "camera.viewfinder"
         }
     }
 }

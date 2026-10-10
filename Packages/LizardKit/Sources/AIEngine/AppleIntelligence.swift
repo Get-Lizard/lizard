@@ -70,6 +70,35 @@ public enum AppleIntelligence {
         return result?.tags.map { $0.lowercased().replacingOccurrences(of: " ", with: "-") } ?? []
     }
 
+    // MARK: Screenshot labels
+
+    @Generable
+    public enum ScreenshotKind: String, Sendable {
+        case code, terminal, error, design, document, chat, web, receipt, meeting, photo, other
+    }
+
+    @Generable(description: "How to file a screenshot")
+    public struct ScreenshotLabel: Sendable {
+        @Guide(description: "What the screenshot mainly shows")
+        public var kind: ScreenshotKind
+        @Guide(description: "A short descriptive title, 2 to 6 words, no date, no file extension")
+        public var title: String
+        @Guide(description: "Up to 3 short lowercase tags (project, topic, tool)", .maximumCount(3))
+        public var tags: [String]
+    }
+
+    /// Files a screenshot from its recognized text and the app it came from.
+    public static func labelScreenshot(text: String, app: String?) async -> ScreenshotLabel? {
+        guard isAvailable else { return nil }
+        let session = LanguageModelSession(instructions: """
+            You file screenshots for a software engineer. Pick what the screenshot mainly shows: code (source code in an editor), \
+            terminal (command line), error (an error message or stack trace), design (UI mockups, design tools), document, chat \
+            (messaging), web (a web page), receipt (invoices, purchases), meeting (video calls, slides), photo (little or no text), other.
+            """)
+        let prompt = "App: \(app ?? "unknown")\nText in the screenshot:\n\(text.prefix(2_500))"
+        return try? await session.respond(to: prompt, generating: ScreenshotLabel.self, options: GenerationOptions(temperature: 0)).content
+    }
+
     /// The last failure, for diagnostics (`lizardcli apple-ai`).
     nonisolated(unsafe) public static var lastError: String?
 

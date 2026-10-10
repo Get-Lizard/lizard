@@ -3,6 +3,7 @@ import DevTools
 import ExtensionHost
 import Foundation
 import Notes
+import Screenshots
 import Search
 import Testing
 
@@ -196,5 +197,30 @@ import Testing
         #expect(Calculator.evaluate("42") == nil)
         #expect(Calculator.evaluate("2 +") == nil)
         #expect(Calculator.evaluate("open (") == nil)
+    }
+}
+
+@Suite struct ScreenshotTests {
+    @Test func heuristicsFileByAppAndText() {
+        #expect(ScreenshotLabel.heuristic(text: "TypeError: undefined is not a function", app: "Chrome", bundleID: "com.google.Chrome").category == .error)
+        #expect(ScreenshotLabel.heuristic(text: "func main() {}", app: "Xcode", bundleID: "com.apple.dt.Xcode").category == .code)
+        #expect(ScreenshotLabel.heuristic(text: "hey are you there", app: "Slack", bundleID: "com.tinyspeck.slackmacgap").category == .chat)
+        #expect(ScreenshotLabel.heuristic(text: "", app: "Photos", bundleID: "com.apple.Photos").category == .photo)
+    }
+
+    @Test func filesIntoCategoryAndMonthFolders() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "shots-\(UUID())")
+        let library = ScreenshotLibrary(root: root, indexURL: root.appending(path: "index.json"))
+        let temp = FileManager.default.temporaryDirectory.appending(path: "\(UUID()).png")
+        try Data([0x89, 0x50, 0x4E, 0x47]).write(to: temp)
+        let date = Date(timeIntervalSince1970: 1_760_000_000)
+        let item = try await library.add(
+            captured: temp, date: date, app: "Xcode", bundleID: nil, label: ScreenshotLabel(category: .code, title: "Login view: crash", tags: ["ios"]),
+            text: "fatal error in LoginView", size: CGSize(width: 10, height: 10))
+        #expect(item.path.contains("/Code/2025-10/"))
+        #expect(item.path.hasSuffix("Login view- crash.png"))
+        #expect(await library.search("loginview").count == 1)
+        let moved = try await library.recategorize(item.id, to: .error)
+        #expect(moved?.path.contains("/Errors/") == true)
     }
 }

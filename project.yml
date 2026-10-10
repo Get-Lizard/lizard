@@ -27,7 +27,7 @@ targets:
         buildPhase: resources
     dependencies:
       - package: LizardKit
-        products: [LizardCore, Search, Notes, Clipboard, DevTools, AIEngine, AIEngineMLX, ExtensionHost, Knowledge]
+        products: [LizardCore, Search, Notes, Clipboard, DevTools, AIEngine, AIEngineMLX, ExtensionHost, Knowledge, Screenshots]
       - package: KeyboardShortcuts
       - package: MarkdownUI
     postBuildScripts:

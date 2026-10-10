@@ -32,6 +32,8 @@ struct LauncherRootView: View {
                 KnowledgeView(query: query, ask: ask)
             case .translate(let text):
                 TranslateView(text: text)
+            case .screenshots:
+                ScreenshotsView()
             case .extensionView(let session):
                 ExtensionView(session: session)
             }

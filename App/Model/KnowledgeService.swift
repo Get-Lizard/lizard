@@ -170,6 +170,13 @@ final class KnowledgeService {
                 documents.append(KnowledgeDocument(id: chat.id.uuidString, source: .chat, title: chat.title, text: text, modified: chat.created, location: "chat:\(chat.id.uuidString)"))
             }
         }
+        if sources.contains(.screenshot) {
+            for shot in app.screenshots.items where shot.text.count >= 12 {
+                documents.append(KnowledgeDocument(
+                    id: shot.id.uuidString, source: .screenshot, title: "\(shot.title) (\(shot.category.title))",
+                    text: ([shot.text] + shot.tags.map { "#\($0)" }).joined(separator: "\n"), modified: shot.date, location: shot.path))
+            }
+        }
         return documents
     }
 
@@ -184,6 +191,8 @@ final class KnowledgeService {
             if let path = hit.location { NSWorkspace.shared.open(URL(filePath: path)); app.hideLauncher() }
         case .clipboard:
             app.copyText(hit.text)
+        case .screenshot:
+            app.launcher.push(.screenshots)
         case .chat:
             if let id = hit.location?.replacingOccurrences(of: "chat:", with: ""), let saved = ChatStore.loadAll().first(where: { $0.id.uuidString == id }) {
                 app.launcher.push(.chat(ChatSession(ai: app.ai, saved: saved)))

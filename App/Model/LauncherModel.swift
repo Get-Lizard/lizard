@@ -22,6 +22,7 @@ final class LauncherModel {
         case aiJob(AIJob)
         case knowledge(query: String, ask: Bool)
         case translate(String)
+        case screenshots
         case extensionView(ExtensionSession)
     }
 

@@ -11,6 +11,7 @@ let package = Package(
         .library(name: "Clipboard", targets: ["Clipboard"]),
         .library(name: "DevTools", targets: ["DevTools"]),
         .library(name: "Knowledge", targets: ["Knowledge"]),
+        .library(name: "Screenshots", targets: ["Screenshots"]),
         .library(name: "AIEngine", targets: ["AIEngine"]),
         .library(name: "AIEngineMLX", targets: ["AIEngineMLX"]),
         .library(name: "ExtensionHost", targets: ["ExtensionHost"]),
@@ -30,6 +31,7 @@ let package = Package(
         .target(name: "Clipboard", dependencies: ["LizardCore"], linkerSettings: [.linkedLibrary("sqlite3")]),
         .target(name: "DevTools", dependencies: ["LizardCore"]),
         .target(name: "Knowledge", dependencies: ["LizardCore"], linkerSettings: [.linkedLibrary("sqlite3")]),
+        .target(name: "Screenshots", dependencies: ["LizardCore"]),
         .target(name: "AIEngine"),
         .target(
             name: "AIEngineMLX",
@@ -55,7 +57,7 @@ let package = Package(
             dependencies: ["LizardCore", "Search", "Notes", "DevTools", "AIEngine", "ExtensionHost", "Knowledge"]),
         .testTarget(
             name: "LizardKitTests",
-            dependencies: ["LizardCore", "Search", "Notes", "Clipboard", "DevTools", "AIEngine", "ExtensionHost", "Knowledge"]),
+            dependencies: ["LizardCore", "Search", "Notes", "Clipboard", "DevTools", "AIEngine", "ExtensionHost", "Knowledge", "Screenshots"]),
     ],
     swiftLanguageModes: [.v6]
 )

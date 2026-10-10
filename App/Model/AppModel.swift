@@ -30,6 +30,7 @@ final class AppModel {
     let launcher = LauncherModel()
     private(set) var knowledge: KnowledgeService!
     private(set) var sync: SyncService!
+    private(set) var screenshots: ScreenshotService!
 
     @ObservationIgnored private(set) var notes = NotesStore(root: Preferences.notesFolder)
     @ObservationIgnored private(set) var workLog = WorkLogStore(root: Preferences.workLogFolder)
@@ -57,6 +58,11 @@ final class AppModel {
         extensions.app = self
         knowledge = KnowledgeService(app: self)
         sync = SyncService(app: self)
+        screenshots = ScreenshotService(app: self)
+    }
+
+    func markOwnPasteboardWrite() {
+        pasteboardMonitor?.markOwnWrite()
     }
 
     /// Notes/work-log folders moved (iCloud, setup): point the stores at the new place.
@@ -141,6 +147,7 @@ final class AppModel {
         KeyboardShortcuts.onKeyUp(for: .clipboard) { [weak self] in self?.open(.clipboard) }
         KeyboardShortcuts.onKeyUp(for: .askAI) { [weak self] in self?.open(.chat(nil)) }
         KeyboardShortcuts.onKeyUp(for: .newNote) { [weak self] in self?.open(.newNote) }
+        KeyboardShortcuts.onKeyUp(for: .screenshotArea) { [weak self] in self?.screenshots.capture(.area) }
         for layout in WindowManager.Layout.allCases {
             guard let name = layout.shortcutName else { continue }
             KeyboardShortcuts.onKeyDown(for: name) { [weak self] in
@@ -352,6 +359,18 @@ final class AppModel {
             },
             command("explain-clipboard", "Explain Clipboard", "Explain copied code, errors or commands", "questionmark.bubble") { [weak self] in
                 self?.launcher.push(.aiJob(.explain(text: NSPasteboard.general.string(forType: .string) ?? "")))
+            },
+            command("screenshots", "Screenshots", "Your captures, filed by category — search the text inside them", "photo.on.rectangle.angled", .indigo) { [weak self] in
+                self?.launcher.push(.screenshots)
+            },
+            command("capture-area", "Capture Area", "Screenshot a region; Lizard names and files it", "plus.viewfinder", .indigo, keepOpen: false) { [weak self] in
+                self?.screenshots.capture(.area)
+            },
+            command("capture-window", "Capture Window", "Screenshot one window", "macwindow.badge.plus", .indigo, keepOpen: false) { [weak self] in
+                self?.screenshots.capture(.window)
+            },
+            command("capture-screen", "Capture Screen", "Screenshot the whole screen", "display", .indigo, keepOpen: false) { [weak self] in
+                self?.screenshots.capture(.screen)
             },
             command("translate", "Translate", "On-device translation of what you type or select", "character.bubble", .blue) { [weak self] in
                 self?.launcher.push(.translate(""))
