@@ -141,6 +141,13 @@ final class AppModel {
         KeyboardShortcuts.onKeyUp(for: .clipboard) { [weak self] in self?.open(.clipboard) }
         KeyboardShortcuts.onKeyUp(for: .askAI) { [weak self] in self?.open(.chat(nil)) }
         KeyboardShortcuts.onKeyUp(for: .newNote) { [weak self] in self?.open(.newNote) }
+        for layout in WindowManager.Layout.allCases {
+            guard let name = layout.shortcutName else { continue }
+            KeyboardShortcuts.onKeyDown(for: name) { [weak self] in
+                // Global shortcut: act on whatever app is in front right now.
+                if let message = WindowManager.apply(layout, to: NSWorkspace.shared.frontmostApplication) { self?.showHUD(message) }
+            }
+        }
     }
 
     // MARK: Launcher panel
@@ -309,7 +316,15 @@ final class AppModel {
     }
 
     private func builtInCommands() -> [LauncherItem] {
-        [
+        let windows = WindowManager.Layout.allCases.map { layout in
+            LauncherItem(id: "window:\(layout.rawValue)", title: "Window: \(layout.title)", subtitle: nil, icon: .symbol(layout.symbol, .purple), kind: .command) { [weak self] in
+                guard let self else { return false }
+                self.hideLauncher()
+                if let message = WindowManager.apply(layout, to: self.previousApp) { self.showHUD(message) }
+                return false
+            }
+        }
+        return windows + [
             command("ask-ai", "Ask AI", "Chat with your private AI", "sparkles") { [weak self] in self?.launcher.askAI() },
             command("ai-chats", "AI Chat History", "Past conversations", "bubble.left.and.text.bubble.right") { [weak self] in self?.launcher.push(.chats) },
             command("clipboard", "Clipboard History", "Search and paste anything you copied", "doc.on.clipboard") { [weak self] in self?.launcher.push(.clipboard) },
@@ -337,6 +352,12 @@ final class AppModel {
             },
             command("explain-clipboard", "Explain Clipboard", "Explain copied code, errors or commands", "questionmark.bubble") { [weak self] in
                 self?.launcher.push(.aiJob(.explain(text: NSPasteboard.general.string(forType: .string) ?? "")))
+            },
+            command("translate", "Translate", "On-device translation of what you type or select", "character.bubble", .blue) { [weak self] in
+                self?.launcher.push(.translate(""))
+            },
+            command("window-layouts", "Window Layouts", "Halves, quarters, thirds, maximize, next display", "rectangle.split.2x1", .purple) { [weak self] in
+                self?.launcher.query = "window "
             },
             command("dev-tools", "Developer Tools", "JSON, JWT, Base64, URL, hashes, timestamps", "wrench.and.screwdriver", .indigo) { [weak self] in self?.launcher.push(.devTools) },
             command("kill-process", "Kill Process", "Find and stop processes by CPU or memory", "xmark.octagon", .red) { [weak self] in self?.launcher.push(.processes) },

@@ -1,5 +1,6 @@
 import AIEngine
 import AppKit
+import DevTools
 import Foundation
 import Observation
 import Search
@@ -20,6 +21,7 @@ final class LauncherModel {
         case quicklinks
         case aiJob(AIJob)
         case knowledge(query: String, ask: Bool)
+        case translate(String)
         case extensionView(ExtensionSession)
     }
 
@@ -136,6 +138,15 @@ final class LauncherModel {
             let extensionCommands = sources.filter { $0.kind == .extensionCommand && !usedIDs.contains($0.id) }
             if !extensionCommands.isEmpty { sections.append(Section(title: "Extensions", items: extensionCommands)) }
         } else {
+            if let result = Calculator.evaluate(query) {
+                sections.append(Section(title: "Calculator", items: [
+                    LauncherItem(id: "calculator", title: "= \(result.display)", subtitle: query, icon: .symbol("equal.square.fill", .orange), kind: .command,
+                        actions: [LauncherAction(title: "Paste Result", symbol: "doc.on.clipboard") { [weak app] in app?.pasteText(result.copyText); return false }]) { [weak app] in
+                        app?.copyText(result.copyText)
+                        return false
+                    },
+                ]))
+            }
             if !ranked.isEmpty { sections.append(Section(title: "Results", items: Array(ranked.prefix(30)))) }
             if !semanticItems.isEmpty { sections.append(Section(title: "From your notes", items: semanticItems)) }
             sections.append(Section(title: "Use “\(query)” with…", items: fallbacks(for: query)))
@@ -174,6 +185,10 @@ final class LauncherModel {
                 return true
             }
         ]
+        items.append(LauncherItem(id: "fallback.translate", title: "Translate", subtitle: query, icon: .symbol("character.bubble", .blue), kind: .command) { [weak self] in
+            self?.push(.translate(query))
+            return true
+        })
         items.append(LauncherItem(id: "fallback.ask-notes", title: "Ask Your Notes", subtitle: query, icon: .symbol("sparkle.magnifyingglass", Brand.teal), kind: .ai) { [weak self] in
             self?.push(.knowledge(query: query, ask: true))
             return true

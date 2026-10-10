@@ -30,6 +30,8 @@ struct LauncherRootView: View {
                 AIJobView(job: job)
             case .knowledge(let query, let ask):
                 KnowledgeView(query: query, ask: ask)
+            case .translate(let text):
+                TranslateView(text: text)
             case .extensionView(let session):
                 ExtensionView(session: session)
             }

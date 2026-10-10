@@ -167,3 +167,34 @@ import Testing
         #expect(String(decoding: buffer, as: UTF8.self) == "{\"b\"")
     }
 }
+
+@Suite struct CalculatorTests {
+    @Test func arithmetic() {
+        #expect(Calculator.evaluate("2+3*4")?.value == 14)
+        #expect(Calculator.evaluate("(2+3)*4")?.value == 20)
+        #expect(Calculator.evaluate("2^10")?.value == 1024)
+        #expect(Calculator.evaluate("-3 + 5")?.value == 2)
+        #expect(Calculator.evaluate("1,234 * 2")?.value == 2468)
+        #expect(Calculator.evaluate("sqrt(16) + 2pi")!.value - (4 + 2 * .pi) < 1e-9)
+    }
+
+    @Test func percentages() {
+        #expect(Calculator.evaluate("15% of 80")?.value == 12)
+        #expect(Calculator.evaluate("200 + 10%")?.value == 220)
+        #expect(Calculator.evaluate("50 - 20%")?.value == 40)
+    }
+
+    @Test func units() {
+        #expect(abs(Calculator.evaluate("5 km in mi")!.value - 3.10686) < 0.0001)
+        #expect(abs(Calculator.evaluate("100 f to c")!.value - 37.7778) < 0.001)
+        #expect(Calculator.evaluate("2 gb in mb")?.value == 2000)
+        #expect(Calculator.evaluate("5 km in kg") == nil)
+    }
+
+    @Test func ignoresNonMath() {
+        #expect(Calculator.evaluate("safari") == nil)
+        #expect(Calculator.evaluate("42") == nil)
+        #expect(Calculator.evaluate("2 +") == nil)
+        #expect(Calculator.evaluate("open (") == nil)
+    }
+}

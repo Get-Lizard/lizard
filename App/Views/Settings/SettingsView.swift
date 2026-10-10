@@ -11,6 +11,9 @@ struct SettingsView: View {
             Tab("General", systemImage: "gearshape") { GeneralSettings() }
             Tab("Shortcuts", systemImage: "keyboard") {
                 Form {
+                    Section("Window management") {
+                        ForEach(HotkeyAction.windows) { HotkeyRecorderRow(action: $0) }
+                    }
                     Section {
                         ForEach(HotkeyAction.all) { HotkeyRecorderRow(action: $0) }
                     } footer: {

@@ -26,6 +26,15 @@ struct HotkeyAction: Identifiable {
         HotkeyAction(name: .askAI, title: "Ask AI", detail: "Chat with the on-device AI.", symbol: "sparkles"),
         HotkeyAction(name: .newNote, title: "New Note", detail: "Start a markdown note.", symbol: "square.and.pencil"),
     ]
+
+    static let windows: [HotkeyAction] = [
+        HotkeyAction(name: .windowLeft, title: "Window Left Half", detail: "Snap the front window left.", symbol: "rectangle.lefthalf.filled"),
+        HotkeyAction(name: .windowRight, title: "Window Right Half", detail: "Snap the front window right.", symbol: "rectangle.righthalf.filled"),
+        HotkeyAction(name: .windowTop, title: "Window Top Half", detail: "Snap the front window up.", symbol: "rectangle.tophalf.filled"),
+        HotkeyAction(name: .windowBottom, title: "Window Bottom Half", detail: "Snap the front window down.", symbol: "rectangle.bottomhalf.filled"),
+        HotkeyAction(name: .windowMaximize, title: "Maximize Window", detail: "Fill the screen.", symbol: "macwindow"),
+        HotkeyAction(name: .windowCenter, title: "Center Window", detail: "Center the front window.", symbol: "rectangle.center.inset.filled"),
+    ]
 }
 
 /// Conflicts worth warning about while recording.
