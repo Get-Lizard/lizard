@@ -81,11 +81,15 @@ jobs:
 
       - name: Update the Homebrew cask
         env:
-          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
           TAP_REPO: ${{ vars.HOMEBREW_TAP_REPO || 'Get-Lizard/homebrew-tap' }}
           SHA256: ${{ steps.build.outputs.sha256 }}
         run: |
-          git clone "https://x-access-token:${TAP_TOKEN}@github.com/${TAP_REPO}.git" tap
+          # Write access to the tap comes from a deploy key on that repo (no personal token).
+          KEY="$RUNNER_TEMP/tap_key"
+          printf '%s\n' "$TAP_DEPLOY_KEY" > "$KEY" && chmod 600 "$KEY"
+          export GIT_SSH_COMMAND="ssh -i $KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+          git clone "git@github.com:${TAP_REPO}.git" tap
           mkdir -p tap/Casks
           sed -e "s/__VERSION__/${VERSION}/g" -e "s/__SHA256__/${SHA256}/g" -e "s#__REPO__#${GITHUB_REPOSITORY}#g" \
             packaging/homebrew/lizard.rb.template > tap/Casks/lizard.rb

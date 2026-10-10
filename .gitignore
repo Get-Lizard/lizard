@@ -9,3 +9,7 @@ Packages/LizardKit/Sources/ExtensionHost/js/dist/
 Packages/LizardKit/Sources/ExtensionHost/js/node_modules/
 Extensions/*/node_modules/
 build/
+
+# Local secrets (never commit)
+.env
+.secrets/

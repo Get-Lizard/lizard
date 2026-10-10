@@ -26,7 +26,7 @@ brew install --cask get-lizard/tap/lizard
 | `NOTARY_KEY_P8` | App Store Connect API key, base64 | App Store Connect › Users and Access › Integrations › App Store Connect API › Team Keys › **+** (role *Developer*) → download `AuthKey_XXXX.p8` → `base64 -i AuthKey_XXXX.p8 \| pbcopy` |
 | `NOTARY_KEY_ID` | The key's ID (`XXXX`) | same page |
 | `NOTARY_ISSUER_ID` | The Issuer ID (a UUID) | top of the same page |
-| `HOMEBREW_TAP_TOKEN` | Fine-grained token that can push to the tap | GitHub › Settings › Developer settings › Fine-grained tokens › repository access: `homebrew-tap` › Contents: Read and write |
+| `HOMEBREW_TAP_DEPLOY_KEY` | Private half of an SSH deploy key with write access on the tap | `ssh-keygen -t ed25519 -N "" -f tap`, then `gh repo deploy-key add tap.pub -R Get-Lizard/homebrew-tap --allow-write` and `gh secret set HOMEBREW_TAP_DEPLOY_KEY < tap` |
 
 ## Releasing
 
