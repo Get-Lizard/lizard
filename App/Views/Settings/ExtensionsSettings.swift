@@ -27,7 +27,7 @@ struct ExtensionsSettings: View {
                     Button("Update All (\(extensions.updates.count))") { extensions.updateAll() }.buttonStyle(.borderedProminent).tint(Brand.moss)
                 }
                 Spacer()
-                Link("Build your own", destination: URL(string: "https://github.com/vitoraguila/lizard/blob/main/docs/EXTENSIONS.md")!)
+                Link("Build your own", destination: URL(string: "https://github.com/Get-Lizard/lizard/blob/main/docs/EXTENSIONS.md")!)
             }
             .controlSize(.small)
             if let message = extensions.message {

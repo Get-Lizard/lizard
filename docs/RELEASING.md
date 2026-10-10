@@ -5,14 +5,14 @@ build → sign with **Developer ID** (hardened runtime) → **notarize** with Ap
 update the **Homebrew cask** in the tap repo. Users install with:
 
 ```sh
-brew install --cask vitoraguila/tap/lizard
+brew install --cask get-lizard/tap/lizard
 ```
 
 ## One-time setup
 
 ### 1. Repositories
-- This repo (e.g. `vitoraguila/lizard`).
-- A tap repo named **`homebrew-tap`** (`vitoraguila/homebrew-tap`). Homebrew finds `vitoraguila/tap` → `github.com/vitoraguila/homebrew-tap`.
+- This repo (e.g. `Get-Lizard/lizard`).
+- A tap repo named **`homebrew-tap`** (`Get-Lizard/homebrew-tap`). Homebrew finds `get-lizard/tap` → `github.com/Get-Lizard/homebrew-tap`.
   It can start empty; the workflow creates `Casks/lizard.rb`. To use another name, set the repo variable
   `HOMEBREW_TAP_REPO` (Settings › Secrets and variables › Actions › Variables).
 

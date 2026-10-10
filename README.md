@@ -62,7 +62,7 @@
 ## Install
 
 ```sh
-brew install --cask vitoraguila/tap/lizard
+brew install --cask get-lizard/tap/lizard
 brew install node        # for extensions
 ```
 

@@ -82,7 +82,7 @@ jobs:
       - name: Update the Homebrew cask
         env:
           TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          TAP_REPO: ${{ vars.HOMEBREW_TAP_REPO || 'vitoraguila/homebrew-tap' }}
+          TAP_REPO: ${{ vars.HOMEBREW_TAP_REPO || 'Get-Lizard/homebrew-tap' }}
           SHA256: ${{ steps.build.outputs.sha256 }}
         run: |
           git clone "https://x-access-token:${TAP_TOKEN}@github.com/${TAP_REPO}.git" tap
