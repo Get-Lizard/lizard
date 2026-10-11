@@ -318,9 +318,45 @@ function useFrecencySorting(data, options = {}) {
   };
 }
 
+/** Streams by default (`stream: false` waits for the whole answer), like Raycast's useAI. */
 function useAI(prompt, options = {}) {
-  const result = usePromise((text) => api.AI.ask(text, options), [prompt], { execute: options.execute ?? true });
-  return { data: result.data ?? "", isLoading: result.isLoading, error: result.error, revalidate: result.revalidate };
+  const execute = options.execute ?? true;
+  const [data, setData] = useState("");
+  const [isLoading, setLoading] = useState(execute);
+  const [error, setError] = useState();
+  const [nonce, setNonce] = useState(0);
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
+  useEffect(() => {
+    if (!execute) return undefined;
+    let cancelled = false;
+    setData("");
+    setError(undefined);
+    setLoading(true);
+    const request = api.AI.ask(prompt, { model: optionsRef.current.model, creativity: optionsRef.current.creativity });
+    if (optionsRef.current.stream !== false) request.on("data", (chunk) => !cancelled && setData((text) => text + chunk));
+    request.then(
+      (text) => {
+        if (cancelled) return;
+        setData(text);
+        setLoading(false);
+        optionsRef.current.onData?.(text);
+      },
+      (reason) => {
+        if (cancelled) return;
+        setError(reason);
+        setLoading(false);
+        if (optionsRef.current.onError) optionsRef.current.onError(reason);
+        else showFailureToast(reason, { title: "AI request failed" });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [prompt, execute, nonce]);
+
+  return { data, isLoading, error, revalidate: useCallback(() => setNonce((n) => n + 1), []) };
 }
 
 function createDeeplink(options) {

@@ -271,8 +271,11 @@ final class ExtensionsModel {
 
     /// Extra environment for extension processes (Lizard's own GitHub CLI login).
     func processEnvironment() async -> [String: String] {
-        if let status = await GitHubCLI.status(), status.isManaged { return GitHubCLI.environment(managed: true) }
-        return [:]
+        var environment: [String: String] = [:]
+        if let status = await GitHubCLI.status(), status.isManaged { environment = GitHubCLI.environment(managed: true) }
+        // `environment.canAccess(AI)` in the shim.
+        environment["LIZARD_AI_AVAILABLE"] = app?.ai.hasAnyProvider == true ? "1" : "0"
+        return environment
     }
 
     func makeRuntime(_ installedExtension: InstalledExtension, _ command: ExtensionManifest.Command, launchType: String = "userInitiated") async throws -> ExtensionRuntime {

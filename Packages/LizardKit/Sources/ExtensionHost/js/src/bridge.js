@@ -10,12 +10,12 @@ function send(message) {
   process.stdout.write(JSON.stringify(message) + "\n");
 }
 
-/** Calls a native service and waits for its answer. */
-function request(method, params = {}) {
+/** Calls a native service and waits for its answer; `onProgress` gets partial results (streams). */
+function request(method, params = {}, onProgress) {
   const id = nextRequestId++;
   send({ type: "request", id, method, params });
   return new Promise((resolve, reject) => {
-    pending.set(id, { resolve, reject });
+    pending.set(id, { resolve, reject, onProgress });
   });
 }
 
@@ -43,6 +43,10 @@ function start() {
         message = JSON.parse(line);
       } catch {
         console.error("[lizard] bad message", line.slice(0, 200));
+        continue;
+      }
+      if (message.type === "progress") {
+        pending.get(message.id)?.onProgress?.(message.data);
         continue;
       }
       if (message.type === "response") {

@@ -104,7 +104,7 @@ You can't send keystrokes to the app from a terminal session (osascript lacks as
 | `lizardcli transform <name> <text>` | run a DevTools transform |
 | `lizardcli gh-status` / `gh-install` / `apple-ai` | GitHub CLI state, managed gh download, Apple Intelligence probe |
 
-`lizardcli` is at `Packages/LizardKit/.build/debug/lizardcli` after `swift build`. Releases ship it as `Lizard.app/Contents/MacOS/lizardcli` (built and signed in `scripts/release.sh`; the cask's `binary` stanza links it onto PATH). When run from the bundle it points `LIZARD_SHIM_DIR` at the app's `Resources/ExtensionShim` (`LizardCLI.useBundledRuntime`).
+`lizardcli` is at `Packages/LizardKit/.build/debug/lizardcli` after `swift build`. Extension AI (`ai.ask`) streams through `HostProgress.send` (a TaskLocal set per request; the shim's `bridge.request(method, params, onProgress)` gets `{type:"progress"}` messages); `AIVendor.order` puts the person's matching cloud account first for a requested `model`. Releases ship it as `Lizard.app/Contents/MacOS/lizardcli` (built and signed in `scripts/release.sh`; the cask's `binary` stanza links it onto PATH). When run from the bundle it points `LIZARD_SHIM_DIR` at the app's `Resources/ExtensionShim` (`LizardCLI.useBundledRuntime`).
 
 Status items on macOS 26 are windows owned by **Control Center**, not the app. To check whether one exists, list
 layer-25 windows with `CGWindowListCopyWindowInfo`; items with `onscreen = false` are hidden (usually behind the notch).

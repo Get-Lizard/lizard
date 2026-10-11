@@ -94,6 +94,11 @@ final class AppModel {
     func start() {
         registerHotkeys()
         Task {
+            // After the first app scan, so the prebuilt panel already has real content.
+            try? await Task.sleep(for: .milliseconds(800))
+            if !isLauncherVisible { prebuildLauncher() }
+        }
+        Task {
             indexedApps = await indexer.refresh()
             launcher.setApps(indexedApps)
             for await apps in await indexer.updates() {
@@ -143,6 +148,7 @@ final class AppModel {
             }
         }
         if arguments.contains("--show-clipboard") { Task { try? await Task.sleep(for: .seconds(1.5)); open(.clipboard) } }
+        if arguments.contains("--bench-summon") { Task { try? await Task.sleep(for: .seconds(3)); await benchSummon() } }
         if arguments.contains("--show-worklog") { Task { try? await Task.sleep(for: .seconds(1.5)); showWorkLog() } }
         if arguments.contains("--show-review") { Task { try? await Task.sleep(for: .seconds(1.5)); openPerformanceReview() } }
         if let index = arguments.firstIndex(of: "--show-setup") {
@@ -164,18 +170,38 @@ final class AppModel {
         await ai.prepareForTermination()
     }
 
+    /// `--bench-summon`: time hotkey-to-typing for a cold and several warm summons
+    /// (written to the scratch file in `LIZARD_BENCH_OUT`, else /tmp/lizard-bench.txt).
+    private func benchSummon() async {
+        var lines: [String] = []
+        func ms(_ duration: Duration) -> String { String(format: "%.1f", Double(duration.components.attoseconds) / 1e15 + Double(duration.components.seconds) * 1000) }
+        for round in 0..<12 {
+            hideLauncher()
+            try? await Task.sleep(for: .milliseconds(400))
+            let start = ContinuousClock.now
+            showLauncher()
+            let shown = ContinuousClock.now
+            while !(launcherPanel?.panel.firstResponder is NSText) { try? await Task.sleep(for: .milliseconds(1)) }
+            lines.append("round \(round): ordered front \(ms(shown - start)) ms, typing ready \(ms(ContinuousClock.now - start)) ms")
+        }
+        hideLauncher()
+        let out = ProcessInfo.processInfo.environment["LIZARD_BENCH_OUT"] ?? "/tmp/lizard-bench.txt"
+        try? lines.joined(separator: "\n").write(toFile: out, atomically: true, encoding: .utf8)
+    }
+
     // MARK: Hotkeys
 
     private func registerHotkeys() {
-        KeyboardShortcuts.onKeyUp(for: .toggleLauncher) { [weak self] in
+        // Key *down*: acting on release adds the whole time the keys are held (often 100 ms+).
+        KeyboardShortcuts.onKeyDown(for: .toggleLauncher) { [weak self] in
             guard let self else { return }
             if self.setupWindow?.isVisible == true, self.setup.page == .done { self.setup.hotkeyTestPassed = true }
             self.toggleLauncher()
         }
-        KeyboardShortcuts.onKeyUp(for: .workLog) { [weak self] in self?.showWorkLog() }
-        KeyboardShortcuts.onKeyUp(for: .clipboard) { [weak self] in self?.open(.clipboard) }
-        KeyboardShortcuts.onKeyUp(for: .askAI) { [weak self] in self?.open(.chat(nil)) }
-        KeyboardShortcuts.onKeyUp(for: .newNote) { [weak self] in self?.open(.newNote) }
+        KeyboardShortcuts.onKeyDown(for: .workLog) { [weak self] in self?.showWorkLog() }
+        KeyboardShortcuts.onKeyDown(for: .clipboard) { [weak self] in self?.open(.clipboard) }
+        KeyboardShortcuts.onKeyDown(for: .askAI) { [weak self] in self?.open(.chat(nil)) }
+        KeyboardShortcuts.onKeyDown(for: .newNote) { [weak self] in self?.open(.newNote) }
         KeyboardShortcuts.onKeyUp(for: .screenshotArea) { [weak self] in self?.screenshots.capture(.area) }
         for layout in WindowManager.Layout.allCases {
             guard let name = layout.shortcutName else { continue }
@@ -219,12 +245,36 @@ final class AppModel {
         }
     }
 
+    /// Speed is the point: put the panel (with what it showed last) on screen and focus the field
+    /// first, then refresh results and warm the AI on the next run-loop turn.
     func showLauncher() {
         rememberFrontApp()
         let controller = ensureLauncherPanel()
-        launcher.summoned()
         controller.show(size: launcher.panelSize)
+        DispatchQueue.main.async { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.launcher.summoned()
+                self.prewarmAIIfIdle()
+            }
+        }
+    }
+
+    @ObservationIgnored private var lastAIPrewarm = Date.distantPast
+
+    /// Warming Apple's model is only worth it once in a while, and never while showing the panel.
+    private func prewarmAIIfIdle() {
+        guard Date.now.timeIntervalSince(lastAIPrewarm) > 120 else { return }
+        lastAIPrewarm = .now
         ai.prewarm()
+    }
+
+    /// Build and render the launcher once at launch, invisibly, so the first hotkey press is as
+    /// fast as every other one (otherwise SwiftUI builds the whole tree on that first press).
+    private func prebuildLauncher() {
+        let controller = ensureLauncherPanel()
+        launcher.refresh()
+        controller.prerender(size: launcher.panelSize)
     }
 
     /// After navigation inside the panel, focus the new screen's text field.

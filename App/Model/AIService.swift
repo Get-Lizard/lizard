@@ -60,6 +60,16 @@ final class AIService {
         await AIJobRunner.run(job, providers: providers(), onPartial: onPartial)
     }
 
+    /// AI for extensions (`AI.ask` / `useAI`): the person's own setup, with their matching cloud
+    /// account first when the extension names a model (Claude, GPT, Gemini) and cloud AI is on.
+    func ask(_ prompt: String, model: String?, onPartial: (@Sendable (String) -> Void)? = nil) async -> (text: String, provider: String)? {
+        let ordered = AIVendor.order(providers(), for: model, cloudAllowed: settings.cloudEnabled) { openRouterModel in
+            guard let key = Keychain.cachedValue(Keychain.openRouterAccount) ?? nil else { return nil }
+            return OpenAICompatibleProvider(baseURL: URL(string: "https://openrouter.ai/api/v1")!, model: openRouterModel, apiKey: key, label: "OpenRouter")
+        }
+        return await AIJobRunner.run(.answer(question: prompt), providers: ordered, onPartial: onPartial)
+    }
+
     func prewarm() { AppleIntelligence.prewarm() }
 
     // MARK: Model download (from Cocoon's SetupModel.downloadModel: disk check, 90 s stall watchdog, 3 attempts)

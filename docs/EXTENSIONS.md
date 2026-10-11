@@ -99,11 +99,35 @@ my-extension/
 | Feedback | `showToast` (+ updates, primary action), `showHUD`, `confirmAlert`, `closeMainWindow`, `popToRoot` |
 | Data | `LocalStorage`, `Cache`, `getPreferenceValues`, `environment` (`supportPath`, `assetsPath`, `launchType`, …) |
 | System | `Clipboard`, `open`, `showInFinder`, `trash`, `getSelectedText`, `getSelectedFinderItems`, `getApplications`, `getFrontmostApplication`, `launchCommand`, `updateCommandMetadata` |
-| AI | `AI.ask` — answered by the user's Lizard AI (on-device by default) |
+| AI | `AI.ask` (streams via `.on("data")`) and `useAI` (streams by default) — answered by the AI the user set up in Lizard; see *Using AI* below |
 | Utils | `usePromise`, `useCachedPromise`, `useCachedState`, `useFetch`, `useExec`, `useLocalStorage`, `useForm` + `FormValidation`, `runAppleScript`, `showFailureToast`, `getFavicon`, `getAvatarIcon`, `withCache`, `useFrecencySorting`, `useAI` |
 | Not yet | `OAuth.PKCEClient`, `Action.PickDate`/`CreateQuicklink`/`CreateSnippet`, background intervals for no-view commands, React 19-only APIs |
 
 Icons: use `Icon.*` (mapped to SF Symbols), `Color.*`, image URLs or files in `assets/`.
+
+### Using AI
+
+Your extension never ships API keys or bills anyone. `AI.ask` and `useAI` are answered by **the AI the person
+already set up in Lizard**:
+
+1. On-device first: Apple Intelligence (free, private, built into macOS 26) and the local MLX model if downloaded.
+2. Their own cloud accounts (OpenRouter, OpenCode Zen, Anthropic, OpenAI), only if they switched **Allow cloud AI** on.
+
+Pass `model` to say what suits your feature; Lizard maps it onto the person's accounts. `AI.Model["Anthropic_Claude_Sonnet"]`
+uses their Anthropic key, or Claude through OpenRouter if that's what they have; GPT and Gemini work the same way. With
+cloud AI off, or no matching account, the request falls back to their normal order. Check `environment.canAccess(AI)`
+before offering AI features, and handle errors (no AI set up).
+
+```tsx
+const { data, isLoading } = useAI(`Summarize: ${text}`, { model: AI.Model["Anthropic_Claude_Sonnet"] });
+// or, streaming by hand:
+const answer = AI.ask("Explain this error", { creativity: "low" });
+answer.on("data", (chunk) => append(chunk));
+await answer;
+```
+
+`lizardcli ext run` answers AI requests too (Apple Intelligence, or `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` in your
+environment), so you can test without the app. `creativity` is accepted but not yet applied.
 
 ## 5. Testing
 

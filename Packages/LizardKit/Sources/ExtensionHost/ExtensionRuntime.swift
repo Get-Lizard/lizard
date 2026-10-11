@@ -18,6 +18,12 @@ public protocol HostServices: Sendable {
     func handle(method: String, params: HostJSON, context: ExtensionContext) async throws -> HostJSON
 }
 
+/// Partial results for the request being handled (e.g. AI text as it streams). Set by the
+/// runtime around `HostServices.handle`; services call it, the extension's `onProgress` receives it.
+public enum HostProgress {
+    @TaskLocal public static var send: (@Sendable (HostJSON) -> Void)?
+}
+
 /// Which command is asking.
 public struct ExtensionContext: Sendable, Hashable {
     public let extensionName: String
@@ -220,7 +226,12 @@ public final class ExtensionRuntime: @unchecked Sendable {
             let context = context
             Task {
                 do {
-                    let result = try await services.handle(method: method, params: params, context: context)
+                    let progress: @Sendable (HostJSON) -> Void = { [weak self] data in
+                        self?.send(["type": "progress", "id": id, "data": data.anyValue])
+                    }
+                    let result = try await HostProgress.$send.withValue(progress) {
+                        try await services.handle(method: method, params: params, context: context)
+                    }
                     self.send(["type": "response", "id": id, "result": result.anyValue])
                 } catch {
                     self.send(["type": "response", "id": id, "error": error.localizedDescription])

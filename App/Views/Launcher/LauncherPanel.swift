@@ -22,7 +22,8 @@ final class LauncherPanel: NSPanel {
         backgroundColor = .clear
         isOpaque = false
         hasShadow = true
-        animationBehavior = .utilityWindow
+        // Appear instantly: the system fade adds ~150 ms before the field is fully there.
+        animationBehavior = .none
         standardWindowButton(.closeButton)?.isHidden = true
         standardWindowButton(.miniaturizeButton)?.isHidden = true
         standardWindowButton(.zoomButton)?.isHidden = true
@@ -73,6 +74,19 @@ final class FloatingPanelController<Content: View> {
         }
         panel.makeKeyAndOrderFront(nil)
         focusTypingField()
+    }
+
+    /// Lays out and draws the content once off screen, so the first real show is warm.
+    func prerender(size requested: NSSize) {
+        size = requested
+        panel.setContentSize(requested)
+        panel.alphaValue = 0
+        panel.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
+        panel.orderFrontRegardless()
+        panel.contentView?.layoutSubtreeIfNeeded()
+        panel.displayIfNeeded()
+        panel.orderOut(nil)
+        panel.alphaValue = 1
     }
 
     func hide() {

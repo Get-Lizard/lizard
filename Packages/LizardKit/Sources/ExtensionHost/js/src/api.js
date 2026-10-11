@@ -29,7 +29,8 @@ const environment = {
   supportPath: "",
   textSize: "medium",
   theme: { appearance: "dark" },
-  canAccess: () => true,
+  // AI is only "accessible" when the person has some AI set up in Lizard.
+  canAccess: (api) => (api === AI ? process.env.LIZARD_AI_AVAILABLE === "1" : true),
 };
 
 const state = { preferences: {}, launchContext: undefined, arguments: {} };
@@ -500,16 +501,18 @@ class Cache {
 }
 
 // ---------------------------------------------------------------------------------------------
-// AI (answered by Lizard's configured AI: on-device first)
+// AI: answered by the AI the person set up in Lizard (on-device first; their own cloud accounts
+// when allowed). `model` picks their matching account (Claude → Anthropic or OpenRouter…).
+// "data" listeners receive the answer in chunks as it streams; the promise resolves to all of it.
 
 const AI = {
   Model: new Proxy({}, { get: (_, name) => String(name) }),
   Creativity: Object.freeze({ None: "none", Low: "low", Medium: "medium", High: "high", Maximum: "maximum" }),
   ask(prompt, options) {
     const listeners = [];
-    const promise = bridge.request("ai.ask", { prompt: String(prompt), creativity: options?.creativity ?? null }).then((text) => {
-      for (const listener of listeners) listener(text);
-      return text;
+    const params = { prompt: String(prompt), creativity: options?.creativity ?? null, model: options?.model ?? null };
+    const promise = bridge.request("ai.ask", params, (chunk) => {
+      for (const listener of listeners) listener(String(chunk ?? ""));
     });
     promise.on = (event, listener) => {
       if (event === "data") listeners.push(listener);

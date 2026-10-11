@@ -3,6 +3,7 @@ import DevTools
 import ExtensionHost
 import Foundation
 import LizardCore
+import Synchronization
 
 /// Headless access to Lizard's engines, for testing without the app.
 ///   lizardcli ext install <name|path> | ext list | ext run <extension> <command> [--prefs k=v,...]
@@ -117,6 +118,8 @@ struct LizardCLI {
         let runtime = ExtensionRuntime(context: ExtensionContext(extensionName: name, commandName: commandName), services: CLIServices())
         var extra: [String: String] = [:]
         if let status = await GitHubCLI.status(), status.isManaged { extra = GitHubCLI.environment(managed: true) }
+        let settings = ProviderSettings.load(from: UserDefaults(suiteName: "io.lizard.app") ?? .standard)
+        extra["LIZARD_AI_AVAILABLE"] = settings.makeProviders(mlx: nil, key: { _ in nil }).isEmpty ? "0" : "1"
         try runtime.start(
             bundle: installed.bundle(for: commandName), command: command, extensionDirectory: installed.packageDirectory,
             assetsPath: installed.assetsDirectory, supportPath: installed.supportDirectory.appending(path: commandName),
@@ -184,6 +187,27 @@ struct CLIServices: HostServices {
         case "confirmAlert": return .bool(true)
         case "applications": return .array([])
         case "selectedText": return .null
+        case "ai.ask":
+            // Same routing as the app, minus Keychain keys (no access prompts from a CLI): Apple
+            // Intelligence, then cloud keys from ANTHROPIC_API_KEY / OPENAI_API_KEY / OPENCODE_API_KEY.
+            let settings = ProviderSettings.load(from: UserDefaults(suiteName: "io.lizard.app") ?? .standard)
+            let providers = AIVendor.order(settings.makeProviders(mlx: nil, key: { _ in nil }), for: params["model"]?.string,
+                                           cloudAllowed: settings.cloudEnabled) { _ in nil }
+            let progress = HostProgress.send
+            let sent = Mutex(0)
+            let result = await AIJobRunner.run(.answer(question: params["prompt"]?.string ?? ""), providers: providers) { full in
+                let delta: String? = sent.withLock { count in
+                    guard full.count > count else { return nil }
+                    defer { count = full.count }
+                    return String(full.dropFirst(count))
+                }
+                if let delta {
+                    fputs("ai chunk: \(delta.count) chars\n", stderr)
+                    progress?(.string(delta))
+                }
+            }
+            guard let result else { throw AIProviderError.unavailable("No AI available to lizardcli (Apple Intelligence off and no API key in the environment).") }
+            return .string(result.text)
         default: return .null
         }
     }

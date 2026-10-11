@@ -4,6 +4,7 @@ import ApplicationServices
 import Clipboard
 import ExtensionHost
 import Foundation
+import Synchronization
 
 /// Native services extensions call and wait for: paste, confirm dialogs, AI, app lists,
 /// the selected text, launching other commands.
@@ -27,7 +28,17 @@ struct AppHostServices: HostServices {
         case "ai.ask":
             guard let app else { return .string("") }
             let prompt = params["prompt"]?.string ?? ""
-            let result = await app.ai.run(.answer(question: prompt))
+            // Stream: the runner reports the full text so far; the extension gets only what's new.
+            let progress = HostProgress.send
+            let sent = Mutex(0)
+            let result = await app.ai.ask(prompt, model: params["model"]?.string) { full in
+                let delta: Substring? = sent.withLock { count in
+                    guard full.count > count else { return nil }
+                    defer { count = full.count }
+                    return full.dropFirst(count)
+                }
+                if let delta { progress?(.string(String(delta))) }
+            }
             guard let result else { throw AIProviderError.unavailable("No AI is set up. Open Lizard Settings › AI.") }
             return .string(result.text)
         case "applications":
