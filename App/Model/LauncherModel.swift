@@ -209,7 +209,9 @@ final class LauncherModel {
         semanticTask?.cancel()
         let text = query.trimmingCharacters(in: .whitespaces)
         // A typed link isn't a question for your notes.
-        guard text.count >= 4, Quicklink.draft(from: text) == nil, let app else { semanticItems = []; return }
+        // Links, sums and translations aren't questions for your notes.
+        guard text.count >= 4, Quicklink.draft(from: text) == nil, Calculator.evaluate(text) == nil, TranslationQuery.parse(text) == nil,
+            let app else { semanticItems = []; return }
         semanticTask = Task {
             try? await Task.sleep(for: .milliseconds(250))
             guard !Task.isCancelled else { return }

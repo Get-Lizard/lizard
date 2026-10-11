@@ -15,6 +15,7 @@ export function Nav() {
         <div className="hidden items-center gap-7 text-[14px] text-muted lg:flex">
           <a className="transition-colors hover:text-ink" href="#ai">Private AI</a>
           <a className="transition-colors hover:text-ink" href="#features">Features</a>
+          <a className="transition-colors hover:text-ink" href="#snippets">Snippets</a>
           <a className="transition-colors hover:text-ink" href="#worklog">Work Log</a>
           <a className="transition-colors hover:text-ink" href="#github">GitHub</a>
           <a className="transition-colors hover:text-ink" href="#extensions">Extensions</a>

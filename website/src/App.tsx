@@ -10,6 +10,10 @@ import { Privacy } from "./sections/Privacy";
 import { Extensions } from "./sections/Extensions";
 import { Shortcuts } from "./sections/Shortcuts";
 import { Closing } from "./sections/Closing";
+import { Stats } from "./sections/Stats";
+import { Showcase } from "./sections/Showcase";
+import { SnippetsDemo } from "./sections/SnippetsDemo";
+import { FirstRun } from "./sections/FirstRun";
 
 export function App() {
   return (
@@ -17,11 +21,15 @@ export function App() {
       <Nav />
       <main>
         <Hero />
+        <Stats />
+        <Showcase />
         <AIPan />
+        <SnippetsDemo />
         <LocalModels />
         <Bento />
         <WorkLog />
         <GitHub />
+        <FirstRun />
         <Privacy />
         <Extensions />
         <Travel />

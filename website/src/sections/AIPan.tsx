@@ -7,21 +7,21 @@ gsap.registerPlugin(ScrollTrigger);
 
 const slides = [
   {
-    image: "./shots/meaning.png",
+    image: "./shots/meaning.webp",
     width: 1680, height: 1063,
     title: "Search by meaning.",
     body: "“payments were slow” finds the checkout incident note. None of those words are in it.",
     alt: "Searching “payments were slow” finds the note titled Checkout requests hanging",
   },
   {
-    image: "./shots/ask.png",
+    image: "./shots/ask.webp",
     width: 1680, height: 500,
     title: "Ask, and get sources.",
     body: "Answers come only from your notes, work log and screenshots, and point back to where they came from.",
     alt: "Ask Your Notes answering how the hanging checkout requests were fixed, citing the incident note",
   },
   {
-    image: "./shots/notes.png",
+    image: "./shots/notes.webp",
     width: 1680, height: 1063,
     title: "Notes that look finished while you type.",
     body: "Live Markdown, folders and tags. Code blocks get a copy button, so a command is one click away.",

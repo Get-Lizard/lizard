@@ -302,6 +302,8 @@ final class AppModel {
         let controller = FloatingPanelController(size: Metrics.launcherSize, hidesOnResign: false) {
             AnyView(LauncherRootView().environment(self))
         }
+        // `--keep-open` (screenshots): stay up while another app has focus.
+        if CommandLine.arguments.contains("--keep-open") { launcherPanel = controller; return controller }
         controller.panel.onResignKey = { [weak self] in
             // Popovers and alerts take key status briefly; hide only when focus left Lizard.
             DispatchQueue.main.async {
@@ -757,7 +759,7 @@ final class AppModel {
         rememberFrontApp()
         workLogContextApp = previousApp?.localizedName
         if workLogPanel == nil {
-            workLogPanel = FloatingPanelController(size: NSSize(width: 560, height: 152)) {
+            workLogPanel = FloatingPanelController(size: NSSize(width: 560, height: 152), hidesOnResign: !CommandLine.arguments.contains("--keep-open")) {
                 AnyView(WorkLogHUD().environment(self))
             }
         }

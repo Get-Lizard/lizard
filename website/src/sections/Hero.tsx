@@ -2,6 +2,8 @@ import { motion, useReducedMotion, useScroll, useTransform } from "motion/react"
 import { useRef } from "react";
 import { InstallCommand, Requirements } from "../Install";
 import { Mark } from "../Mark";
+import { Aurora, WanderingGecko } from "../Ambient";
+import { LiveDemo } from "../LiveDemo";
 
 const rise = {
   hidden: { opacity: 0, y: 18 },
@@ -18,7 +20,8 @@ export function Hero() {
 
   return (
     <section id="top" ref={ref} className="relative overflow-hidden">
-      <div aria-hidden className="pointer-events-none absolute -top-40 right-[-10%] h-[720px] w-[900px] rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--accent)_22%,transparent),transparent)] blur-2xl" />
+      <Aurora />
+      <WanderingGecko />
       <div className="mx-auto grid min-h-[calc(100dvh-4rem)] max-w-[1240px] grid-cols-1 items-center gap-14 px-4 pb-16 pt-12 md:px-8 lg:grid-cols-[1fr_1.15fr] lg:gap-10 lg:pt-16">
         <div className="relative z-10 min-w-0 max-w-[560px]">
           <motion.div variants={rise} initial={reduce ? false : "hidden"} animate="show" custom={0} className="mb-7">
@@ -51,16 +54,10 @@ export function Hero() {
           initial={reduce ? false : { opacity: 0, y: 40, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ delay: 0.35, duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
-          className="relative min-w-0 [perspective:1600px]"
+          style={{ rotateX: rotate, y }}
+          className="relative z-10 min-w-0 origin-top"
         >
-          <motion.img
-            style={{ rotateX: rotate, y }}
-            src="./shots/home.png"
-            width={1680}
-            height={1061}
-            alt="Lizard's launcher: a search field, a greeting, quick tiles for Ask AI, Clipboard, Notes and Screenshots, and recent commands"
-            className="screen w-full origin-top"
-          />
+          <LiveDemo />
         </motion.div>
       </div>
     </section>
