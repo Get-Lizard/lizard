@@ -5,7 +5,7 @@ import LizardCore
 import Observation
 import Search
 
-/// Everything Lizard can carry to another Mac: settings, shortcuts, quicklinks, the extension
+/// Everything Lizard can carry to another Mac: settings, shortcuts, quicklinks, snippets, the extension
 /// list (with their preferences and stored data), optionally notes, work log and chats.
 /// API keys never leave the Keychain; clipboard history stays on this Mac.
 struct PortableSnapshot: Codable {
@@ -21,6 +21,9 @@ struct PortableSnapshot: Codable {
     var settings: [String: Data] = [:]
     var quicklinks: [Quicklink] = []
     var quicklinksModified: Date?
+    /// Optional so backups and sync files from earlier versions still decode.
+    var snippets: [Snippet]?
+    var snippetsModified: Date?
     var extensions: [ExtensionEntry] = []
 }
 
@@ -56,6 +59,8 @@ enum Portability {
         var snapshot = PortableSnapshot()
         snapshot.settings = portableSettings()
         snapshot.quicklinks = await app.quicklinks.links
+        snapshot.snippets = await app.snippetStore.snippets
+        snapshot.snippetsModified = await app.snippetStore.modified
         snapshot.quicklinksModified = (try? AppPaths.applicationSupport.appending(path: "quicklinks.json").resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
         snapshot.extensions = app.extensions.installed.map { item in
             PortableSnapshot.ExtensionEntry(
@@ -133,6 +138,10 @@ enum BackupService {
         progress("Restoring settings and shortcuts…")
         Portability.applySettings(snapshot.settings)
         await app.quicklinks.replaceAll(snapshot.quicklinks)
+        if let snippets = snapshot.snippets {
+            _ = await app.snippetStore.merge(snippets)
+            app.snippetsChanged()
+        }
 
         for entry in snapshot.extensions {
             // Names come from the backup file: never let one point outside its folder.
@@ -288,6 +297,13 @@ final class SyncService {
             newest.quicklinks != mine.quicklinks {
             await app.quicklinks.replaceAll(newest.quicklinks)
             app.quicklinksChanged()
+        }
+        // Snippets: likewise, the most recently edited set wins.
+        if let newest = others.filter({ $0.snippetsModified != nil && $0.snippets != nil }).max(by: { $0.snippetsModified! < $1.snippetsModified! }),
+            let theirs = newest.snippetsModified, let snippets = newest.snippets,
+            theirs > (mine.snippetsModified ?? .distantPast).addingTimeInterval(1), snippets != (mine.snippets ?? []) {
+            await app.snippetStore.replaceAll(snippets)
+            app.snippetsChanged()
         }
         // Settings: from the most recent snapshot newer than this Mac's last write.
         if let newest = others.max(by: { $0.created < $1.created }), newest.created > (lastSync ?? .distantPast) {

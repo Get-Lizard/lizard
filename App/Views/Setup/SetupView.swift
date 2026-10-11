@@ -272,7 +272,7 @@ private struct RaycastPage: View {
     @State private var showImporter = false
 
     var body: some View {
-        PageHeader(title: "Coming from Raycast?", subtitle: "Lizard found Raycast on this Mac. Bring your extensions along (they run in Lizard as they are) and import your quicklinks.")
+        PageHeader(title: "Coming from Raycast?", subtitle: "Lizard found Raycast on this Mac. Bring your extensions along (they run in Lizard as they are) and import your quicklinks and snippets.")
         RaycastImportView(onDone: {}).environment(app).frame(minHeight: 330)
     }
 }

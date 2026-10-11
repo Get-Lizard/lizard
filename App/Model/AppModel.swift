@@ -1,5 +1,6 @@
 import AIEngine
 import AppKit
+import Carbon.HIToolbox
 import ApplicationServices
 import Clipboard
 import ExtensionHost
@@ -36,6 +37,10 @@ final class AppModel {
     @ObservationIgnored private(set) var notes = NotesStore(root: Preferences.notesFolder)
     @ObservationIgnored private(set) var workLog = WorkLogStore(root: Preferences.workLogFolder)
     @ObservationIgnored let quicklinks = QuicklinkStore()
+    /// Saved snippets (Create Snippet / Search Snippets; keywords expand anywhere).
+    @ObservationIgnored let snippetStore = SnippetStore()
+    private(set) var savedSnippets: [Snippet] = []
+    @ObservationIgnored private(set) lazy var snippetExpander = SnippetExpander(app: self)
     @ObservationIgnored let frecency = Frecency()
     @ObservationIgnored private let indexer = AppIndexer()
     @ObservationIgnored private var clipboardStore: ClipboardStore?
@@ -81,6 +86,70 @@ final class AppModel {
     }
 
     /// Quicklinks were added, edited, restored or synced.
+    func snippetsChanged() {
+        Task {
+            savedSnippets = await snippetStore.snippets
+            snippetExpander.update(savedSnippets)
+            launcher.refresh()
+            sync.scheduleWrite()
+        }
+    }
+
+    /// Fills a snippet's placeholders with the clipboard (and its history, for `offset=N`), the
+    /// selection, the date, and other snippets.
+    func expandSnippet(_ snippet: Snippet, selection: String? = nil) async -> Snippet.Expansion {
+        let history = snippet.text.contains("offset=") ? await clipboardItems(matching: "").map(\.text) : []
+        return Snippet.expand(
+            snippet.text, clipboard: NSPasteboard.general.string(forType: .string), selection: selection,
+            snippets: savedSnippets, clipboardHistory: { history.indices.contains($0) ? history[$0] : nil })
+    }
+
+    /// Pastes a snippet into the app you were in: placeholders filled, caret moved to `{cursor}`.
+    func pasteSnippet(_ snippet: Snippet) {
+        let selection = selectedTextInPreviousApp()
+        Task {
+            let expansion = await expandSnippet(snippet, selection: selection)
+            pasteText(expansion.text)
+            if let back = expansion.cursorFromEnd, back > 0 {
+                try? await Task.sleep(for: .milliseconds(250))
+                SnippetExpander.press(kVK_LeftArrow, times: back)
+            }
+        }
+    }
+
+    func copySnippet(_ snippet: Snippet) {
+        Task { copyText(await expandSnippet(snippet).text) }
+    }
+
+    func importSnippets() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.message = "Choose a snippets file (Raycast's Export Snippets, or one from Lizard)"
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url, let data = try? Data(contentsOf: url) else { return }
+        let incoming = Snippet.fromRaycastExport(data)
+        guard !incoming.isEmpty else { return showHUD("That file doesn't contain snippets") }
+        Task {
+            let added = await snippetStore.merge(incoming)
+            snippetsChanged()
+            showHUD(added == 0 ? "All \(incoming.count) snippets are already in Lizard" : "Imported \(added) snippet\(added == 1 ? "" : "s")")
+        }
+    }
+
+    func exportSnippets() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "Lizard Snippets.json"
+        panel.allowedContentTypes = [.json]
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try Snippet.raycastExport(savedSnippets).write(to: url, options: .atomic)
+            showHUD("Exported \(savedSnippets.count) snippets (Raycast can import this file too)")
+        } catch {
+            showHUD("Couldn't export: \(error.localizedDescription)")
+        }
+    }
+
     func quicklinksChanged() {
         Task {
             quicklinkList = await quicklinks.links
@@ -107,6 +176,10 @@ final class AppModel {
             }
         }
         Task { quicklinkList = await quicklinks.links }
+        Task {
+            savedSnippets = await snippetStore.snippets
+            snippetExpander.update(savedSnippets)
+        }
         Task {
             await refreshSnippets()
             for await _ in await notes.changes() { await refreshSnippets() }
@@ -153,6 +226,10 @@ final class AppModel {
             let text = index + 1 < arguments.count ? arguments[index + 1] : nil
             Task { try? await Task.sleep(for: .seconds(1.5)); showLauncher(); createQuicklink(from: text) }
         }
+        if arguments.contains("--new-snippet") {
+            Task { try? await Task.sleep(for: .seconds(1.5)); showLauncher(); launcher.push(.snippetEditor(Snippet(name: "Email signature", text: "Best,\nVitor\n{date}", keyword: ";sig"), isNew: true)) }
+        }
+        if arguments.contains("--show-snippets") { Task { try? await Task.sleep(for: .seconds(1.5)); showLauncher(); launcher.push(.snippets) } }
         if arguments.contains("--show-worklog") { Task { try? await Task.sleep(for: .seconds(1.5)); showWorkLog() } }
         if arguments.contains("--show-review") { Task { try? await Task.sleep(for: .seconds(1.5)); openPerformanceReview() } }
         if let index = arguments.firstIndex(of: "--show-setup") {
@@ -260,6 +337,7 @@ final class AppModel {
                 guard let self else { return }
                 self.launcher.summoned()
                 self.prewarmAIIfIdle()
+                self.snippetExpander.refreshMonitoring()  // picks up a newly granted Accessibility
             }
         }
     }
@@ -363,6 +441,18 @@ final class AppModel {
                     return false
                 }]) { [weak self] in
                 self?.copyText(note.snippet ?? "")
+                return false
+            })
+        }
+        for snippet in savedSnippets {
+            let preview = snippet.text.split(separator: "\n", omittingEmptySubsequences: true).first.map(String.init)
+            items.append(LauncherItem(id: "snippet.saved:\(snippet.id)", title: snippet.name, subtitle: snippet.keyword.map { "\($0)  ·  \(preview ?? "")" } ?? preview,
+                icon: .symbol("text.quote", .red), kind: .snippet, accessory: "Paste",
+                actions: [
+                    LauncherAction(title: "Copy", symbol: "doc.on.doc") { [weak self] in self?.copySnippet(snippet); return false },
+                    LauncherAction(title: "Edit Snippet", symbol: "pencil") { [weak self] in self?.launcher.push(.snippetEditor(snippet, isNew: false)); return true },
+                ]) { [weak self] in
+                self?.pasteSnippet(snippet)
                 return false
             })
         }
@@ -502,6 +592,20 @@ final class AppModel {
             command("kill-process", "Kill Process", "Find and stop processes by CPU or memory", "xmark.octagon", .red) { [weak self] in self?.launcher.push(.processes) },
             command("ports", "Listening Ports", "Who's on :3000? Stop it", "network", .orange) { [weak self] in self?.launcher.push(.ports) },
             command("quicklinks", "Manage Quicklinks", "URL templates like gh {query}", "link", .blue) { [weak self] in self?.launcher.push(.quicklinks) },
+            command("create-snippet", "Create Snippet", "Save text you type often; give it a keyword to expand anywhere", "text.badge.plus", .red) { [weak self] in
+                self?.launcher.push(.snippetEditor(Snippet(name: "", text: ""), isNew: true))
+            },
+            command("search-snippets", "Search Snippets", "Find a snippet and paste it into your app", "text.page.badge.magnifyingglass", .red) { [weak self] in
+                self?.launcher.push(.snippets)
+            },
+            command("import-snippets", "Import Snippets", "From Raycast's Export Snippets or a Lizard file", "square.and.arrow.down", .red, keepOpen: false) { [weak self] in
+                self?.hideLauncher()
+                self?.importSnippets()
+            },
+            command("export-snippets", "Export Snippets", "Save all snippets to a file (Raycast can import it)", "square.and.arrow.up", .red, keepOpen: false) { [weak self] in
+                self?.hideLauncher()
+                self?.exportSnippets()
+            },
             command("create-quicklink", "Create Quicklink", "Add a link you open often, with an optional keyword", "link.badge.plus", .blue) { [weak self] in
                 self?.createQuicklink(from: nil)
             },

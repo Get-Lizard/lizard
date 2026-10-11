@@ -142,10 +142,11 @@ struct RaycastImportView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Import from Raycast").font(.title2.weight(.semibold))
-            Text("Your Raycast extensions run in Lizard as they are. Raycast keeps quicklinks encrypted, so they come over through Raycast's own export, guided below.")
+            Text("Your Raycast extensions run in Lizard as they are. Raycast keeps quicklinks and snippets encrypted, so they come over through Raycast's own exports, guided below.")
                 .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             RaycastExtensionPicker(available: available, selected: $selected)
-            RaycastQuicklinksImport()
+            RaycastExportImport(kind: .quicklinks)
+            RaycastExportImport(kind: .snippets)
             if let result { Text(result).font(.callout).foregroundStyle(Brand.moss) }
             HStack {
                 Spacer()
@@ -176,8 +177,17 @@ struct RaycastImportView: View {
 /// "Export Quicklinks" is the only way out. After "Open Raycast", Lizard watches Downloads for the
 /// export (macOS asks once for Downloads access, so watching never starts before that click);
 /// files saved elsewhere come in by drop or "Choose File…".
-struct RaycastQuicklinksImport: View {
+struct RaycastExportImport: View {
     @Environment(AppModel.self) private var app
+
+    enum Kind {
+        case quicklinks, snippets
+        var title: String { self == .quicklinks ? "Quicklinks" : "Snippets" }
+        var symbol: String { self == .quicklinks ? "link" : "text.quote" }
+        var noun: (one: String, many: String) { self == .quicklinks ? ("quicklink", "quicklinks") : ("snippet", "snippets") }
+    }
+
+    let kind: Kind
 
     enum Phase: Equatable { case idle, waiting, imported(added: Int, total: Int), failed(String) }
 
@@ -188,7 +198,7 @@ struct RaycastQuicklinksImport: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Label("Quicklinks", systemImage: "link").font(.headline)
+                Label(kind.title, systemImage: kind.symbol).font(.headline)
                 Spacer()
                 status
             }
@@ -201,11 +211,11 @@ struct RaycastQuicklinksImport: View {
             step(2) {
                 HStack(spacing: 4) {
                     Text("Type")
-                    Text("Search Quicklinks").fontWeight(.semibold)
+                    Text("Search \(kind.title)").fontWeight(.semibold)
                     Text("and press ↩, then")
                     KeyCap(text: "⌘K")
                     Text("and choose")
-                    Text("Export Quicklinks").fontWeight(.semibold)
+                    Text("Export \(kind.title)").fontWeight(.semibold)
                 }
             }
             step(3) {
@@ -244,15 +254,15 @@ struct RaycastQuicklinksImport: View {
                 Text("Watching Downloads for your export…").font(.caption).foregroundStyle(.secondary)
             }
         case .imported(let added, let total):
-            Label(Self.summary(added: added, total: total), systemImage: "checkmark.circle.fill")
+            Label(Self.summary(added: added, total: total, noun: kind.noun), systemImage: "checkmark.circle.fill")
                 .font(.caption.weight(.semibold)).foregroundStyle(Brand.moss)
         case .failed(let message):
             Label(message, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.orange)
         }
     }
 
-    static func summary(added: Int, total: Int) -> String {
-        let plural = { (n: Int) in n == 1 ? "quicklink" : "quicklinks" }
+    static func summary(added: Int, total: Int, noun: (one: String, many: String) = ("quicklink", "quicklinks")) -> String {
+        let plural = { (n: Int) in n == 1 ? noun.one : noun.many }
         if added == total { return "Imported \(added) \(plural(added))" }
         if added == 0 { return total == 1 ? "Already in Lizard" : "All \(total) are already in Lizard" }
         return "Imported \(added) new \(plural(added)) (\(total - added) already in Lizard)"
@@ -318,17 +328,30 @@ struct RaycastQuicklinksImport: View {
     @discardableResult
     private func importFile(_ url: URL, explicit: Bool) -> Bool {
         guard let data = try? Data(contentsOf: url) else { return false }
-        let links = Quicklink.fromRaycastExport(data)
-        guard !links.isEmpty else {
-            if explicit { phase = .failed("That file isn't a Raycast quicklinks export") }
-            return false
-        }
-        Task {
-            let added = await app.quicklinks.merge(links)
-            app.quicklinksChanged()
-            withAnimation(.smooth) { phase = .imported(added: added, total: links.count) }
+        switch kind {
+        case .quicklinks:
+            let links = Quicklink.fromRaycastExport(data)
+            guard !links.isEmpty else { return rejected(explicit) }
+            Task {
+                let added = await app.quicklinks.merge(links)
+                app.quicklinksChanged()
+                withAnimation(.smooth) { phase = .imported(added: added, total: links.count) }
+            }
+        case .snippets:
+            let snippets = Snippet.fromRaycastExport(data)
+            guard !snippets.isEmpty else { return rejected(explicit) }
+            Task {
+                let added = await app.snippetStore.merge(snippets)
+                app.snippetsChanged()
+                withAnimation(.smooth) { phase = .imported(added: added, total: snippets.count) }
+            }
         }
         return true
+    }
+
+    private func rejected(_ explicit: Bool) -> Bool {
+        if explicit { phase = .failed("That file isn't a Raycast \(kind.noun.many) export") }
+        return false
     }
 }
 

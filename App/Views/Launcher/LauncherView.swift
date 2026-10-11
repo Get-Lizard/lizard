@@ -28,6 +28,10 @@ struct LauncherRootView: View {
                 QuicklinksView()
             case .quicklinkEditor(let link, let isNew):
                 QuicklinkEditorView(link: link, isNew: isNew).id(link.id)
+            case .snippets:
+                SnippetsView()
+            case .snippetEditor(let snippet, let isNew):
+                SnippetEditorView(snippet: snippet, isNew: isNew).id(snippet.id)
             case .aiJob(let job):
                 AIJobView(job: job)
             case .knowledge(let query, let ask):

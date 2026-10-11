@@ -201,6 +201,20 @@ A two-second habit for remembering what you did.
   self-review: Summary, Key achievements, Projects, Collaboration & leadership, Growth, Next period. It only uses what
   the log says; long periods are sampled evenly so early months aren't dropped.
 
+### Snippets
+
+Text you type often (replies, signatures, commands), Raycast-style.
+
+- **Create Snippet** / **Search Snippets** from the launcher (↩ pastes into the app you were in, ⌘C copies, ⌘E edits).
+  Snippets also appear in the main search.
+- **Keywords expand anywhere:** give a snippet a keyword like `;sig` and typing it in any app replaces it with the
+  snippet (never in password fields; needs Accessibility; Settings › General to turn off).
+- **Raycast's dynamic placeholders:** `{clipboard}` (and `{clipboard offset=1}` from history), `{selection}`, `{cursor}`,
+  `{date}`, `{time}`, `{datetime}`, `{day}`, `{uuid}`, custom `format="yyyy-MM-dd"` and `offset="+1d -2h"`,
+  `{snippet name="…"}`, and modifiers `| uppercase | lowercase | trim | percent-encode | json-stringify | raw`.
+- **Import / Export Snippets** in Raycast's JSON format (both directions), the Raycast step in setup, backups and
+  iCloud sync.
+
 ### Clipboard history
 
 - **⌥⇧V:** search everything you copied: text, links, files and images, newest first, with pins.

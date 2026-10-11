@@ -55,6 +55,7 @@ private struct GeneralSettings: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var clipboard = Preferences.clipboardEnabled
     @State private var resume = Preferences.resumeLauncher
+    @State private var expandSnippets = SnippetExpander.isEnabled
     @State private var menuBarIcon = Preferences.showMenuBarIcon
     @State private var mode = PerformanceMode.current
 
@@ -78,6 +79,13 @@ private struct GeneralSettings: View {
                     .font(.caption).foregroundStyle(.secondary)
                 Toggle("Reopen where I left off", isOn: $resume)
                     .onChange(of: resume) { _, on in Preferences.resumeLauncher = on }
+                Toggle("Expand snippet keywords as I type", isOn: $expandSnippets)
+                    .onChange(of: expandSnippets) { _, on in
+                        SnippetExpander.isEnabled = on
+                        app.snippetExpander.refreshMonitoring()
+                    }
+                Text("Type a snippet's keyword (like ;sig) in any app and it turns into the snippet. Never in password fields. Needs the Accessibility permission.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Toggle("Keep clipboard history", isOn: $clipboard)
                     .onChange(of: clipboard) { _, on in
                         Preferences.clipboardEnabled = on

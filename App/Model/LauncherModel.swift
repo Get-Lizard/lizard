@@ -20,6 +20,8 @@ final class LauncherModel {
         case processes
         case quicklinks
         case quicklinkEditor(Quicklink, isNew: Bool)
+        case snippets
+        case snippetEditor(Snippet, isNew: Bool)
         case aiJob(AIJob)
         case knowledge(query: String, ask: Bool)
         case translate(String)
@@ -56,7 +58,7 @@ final class LauncherModel {
     /// Roomy screens (notes, screenshots…) get a bigger panel; search stays compact.
     var isWorkspace: Bool {
         switch route {
-        case .notes, .screenshots, .knowledge, .clipboard, .processes, .ports, .devTools, .translate: true
+        case .notes, .screenshots, .knowledge, .clipboard, .processes, .ports, .devTools, .translate, .snippets: true
         default: false
         }
     }

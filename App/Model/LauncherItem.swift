@@ -19,6 +19,7 @@ struct LauncherItem: Identifiable {
         case ai = "AI"
         case note = "Note"
         case clipboard = "Clipboard"
+        case snippet = "Snippet"
     }
 
     let id: String
