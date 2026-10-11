@@ -229,7 +229,6 @@ struct ProcessesView: View {
 struct QuicklinksView: View {
     @Environment(AppModel.self) private var app
     @State private var links: [Quicklink] = []
-    @State private var editing: Quicklink?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -238,20 +237,12 @@ struct QuicklinksView: View {
                 Image(systemName: "link").foregroundStyle(Brand.moss)
                 Text("Quicklinks").font(.headline)
                 Spacer()
-                Button("New Quicklink") { editing = Quicklink(name: "", template: "https://") }
+                Button("New Quicklink") { app.createQuicklink(from: nil) }.keyboardShortcut("n", modifiers: .command)
             }
             .padding(.horizontal, 14)
             .frame(height: 50)
             Divider()
-            if let editing {
-                QuicklinkEditor(link: editing) { saved in
-                    Task {
-                        if let saved { await app.quicklinks.save(saved) }
-                        self.editing = nil
-                        await load()
-                    }
-                }
-            } else {
+            do {
                 List(links) { link in
                     HStack {
                         Image(systemName: link.symbol).foregroundStyle(Brand.moss).frame(width: 20)
@@ -263,9 +254,9 @@ struct QuicklinksView: View {
                         if let keyword = link.keyword { KeyCap(text: keyword) }
                     }
                     .contentShape(Rectangle())
-                    .onTapGesture(count: 2) { editing = link }
+                    .onTapGesture(count: 2) { app.launcher.push(.quicklinkEditor(link, isNew: false)) }
                     .contextMenu {
-                        Button("Edit") { editing = link }
+                        Button("Edit") { app.launcher.push(.quicklinkEditor(link, isNew: false)) }
                         Button("Delete", role: .destructive) { Task { await app.quicklinks.delete(link.id); await load() } }
                     }
                 }
@@ -278,28 +269,5 @@ struct QuicklinksView: View {
     private func load() async {
         links = await app.quicklinks.links
         app.quicklinksChanged()
-    }
-}
-
-private struct QuicklinkEditor: View {
-    @State var link: Quicklink
-    let done: (Quicklink?) -> Void
-
-    var body: some View {
-        Form {
-            TextField("Name", text: $link.name)
-            TextField("URL", text: $link.template, prompt: Text("https://example.com/search?q={query}"))
-            TextField("Keyword", text: Binding(get: { link.keyword ?? "" }, set: { link.keyword = $0.isEmpty ? nil : $0 }))
-            Text("Use {query} for what you type, {clipboard} for the clipboard, {selection} for selected text.")
-                .font(.caption).foregroundStyle(.secondary)
-            HStack {
-                Spacer()
-                Button("Cancel") { done(nil) }
-                Button("Save") { done(link) }.buttonStyle(.borderedProminent).tint(Brand.moss)
-                    .disabled(link.name.isEmpty || link.template.isEmpty)
-            }
-        }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
     }
 }

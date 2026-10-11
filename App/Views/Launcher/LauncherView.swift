@@ -26,6 +26,8 @@ struct LauncherRootView: View {
                 ProcessesView()
             case .quicklinks:
                 QuicklinksView()
+            case .quicklinkEditor(let link, let isNew):
+                QuicklinkEditorView(link: link, isNew: isNew).id(link.id)
             case .aiJob(let job):
                 AIJobView(job: job)
             case .knowledge(let query, let ask):

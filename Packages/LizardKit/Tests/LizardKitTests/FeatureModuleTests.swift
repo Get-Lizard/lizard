@@ -587,3 +587,25 @@ enum ProcessRunnerHelper {
         #expect(await store.links.count == before + 1)
     }
 }
+
+@Suite struct QuicklinkDraftTests {
+    @Test func draftsFromTypedLinks() {
+        #expect(Quicklink.draft(from: "github.com/vitoraguila")?.template == "https://github.com/vitoraguila")
+        #expect(Quicklink.draft(from: "https://www.linear.app/odyyy")?.name == "Linear")
+        #expect(Quicklink.draft(from: "vscode://file/tmp")?.template == "vscode://file/tmp")
+        #expect(Quicklink.draft(from: "localhost:3000") == nil)
+        #expect(Quicklink.draft(from: "hello world") == nil)
+        #expect(Quicklink.draft(from: "notes") == nil)
+    }
+
+    @Test func raycastExportKeepsOpenWith() {
+        let data = Data(#"[{"name":"Docs","link":"https://d.test/{argument}","openWith":"Google Chrome"}]"#.utf8)
+        #expect(Quicklink.fromRaycastExport(data).first?.openWith == "Google Chrome")
+    }
+
+    @Test func oldSavedLinksStillDecode() throws {
+        let json = Data(#"[{"id":"8D5090C6-0CB9-4029-B1B1-968EF3E39B46","name":"G","template":"https://g.test","symbol":"link"}]"#.utf8)
+        let links = try JSONDecoder().decode([Quicklink].self, from: json)
+        #expect(links.first?.openWith == nil)
+    }
+}

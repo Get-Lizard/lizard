@@ -149,6 +149,10 @@ final class AppModel {
         }
         if arguments.contains("--show-clipboard") { Task { try? await Task.sleep(for: .seconds(1.5)); open(.clipboard) } }
         if arguments.contains("--bench-summon") { Task { try? await Task.sleep(for: .seconds(3)); await benchSummon() } }
+        if let index = arguments.firstIndex(of: "--new-quicklink") {
+            let text = index + 1 < arguments.count ? arguments[index + 1] : nil
+            Task { try? await Task.sleep(for: .seconds(1.5)); showLauncher(); createQuicklink(from: text) }
+        }
         if arguments.contains("--show-worklog") { Task { try? await Task.sleep(for: .seconds(1.5)); showWorkLog() } }
         if arguments.contains("--show-review") { Task { try? await Task.sleep(for: .seconds(1.5)); openPerformanceReview() } }
         if let index = arguments.firstIndex(of: "--show-setup") {
@@ -414,10 +418,22 @@ final class AppModel {
         frecency.record(id)
     }
 
+    /// Opens the quicklink editor, prefilled from a typed or copied link when there is one.
+    func createQuicklink(from text: String?) {
+        let clipboard = NSPasteboard.general.string(forType: .string)
+        let draft = text.flatMap(Quicklink.draft(from:)) ?? clipboard.flatMap(Quicklink.draft(from:))
+            ?? Quicklink(name: "", template: "https://")
+        launcher.push(.quicklinkEditor(draft, isNew: true))
+    }
+
     func openQuicklink(_ link: Quicklink, query: String) {
         let clipboard = NSPasteboard.general.string(forType: .string)
         guard let url = link.resolve(query: query, clipboard: clipboard, selection: nil) else { return showHUD("Invalid quicklink URL") }
-        NSWorkspace.shared.open(url)
+        if let appURL = OpenWithApps.appURL(for: link.openWith) {
+            NSWorkspace.shared.open([url], withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration())
+        } else {
+            NSWorkspace.shared.open(url)
+        }
         hideLauncher()
     }
 
@@ -486,6 +502,9 @@ final class AppModel {
             command("kill-process", "Kill Process", "Find and stop processes by CPU or memory", "xmark.octagon", .red) { [weak self] in self?.launcher.push(.processes) },
             command("ports", "Listening Ports", "Who's on :3000? Stop it", "network", .orange) { [weak self] in self?.launcher.push(.ports) },
             command("quicklinks", "Manage Quicklinks", "URL templates like gh {query}", "link", .blue) { [weak self] in self?.launcher.push(.quicklinks) },
+            command("create-quicklink", "Create Quicklink", "Add a link you open often, with an optional keyword", "link.badge.plus", .blue) { [weak self] in
+                self?.createQuicklink(from: nil)
+            },
             command("settings", "Lizard Settings", "Shortcuts, AI, accounts, extensions", "gearshape", .gray, keepOpen: false) { [weak self] in self?.openSettings() },
             command("setup", "Run Setup", "Shortcuts, permissions, AI, GitHub", "sparkles.rectangle.stack", .gray, keepOpen: false) { [weak self] in self?.showSetup() },
             command("quit", "Quit Lizard", "", "power", .gray, keepOpen: false) { NSApp.terminate(nil) },

@@ -13,7 +13,8 @@ public struct Quicklink: Codable, Sendable, Hashable, Identifiable {
             }
             // `{argument name="x"}` → the typed query.
             link = link.replacingOccurrences(of: #"\{argument[^}]*\}"#, with: "{query}", options: .regularExpression)
-            return Quicklink(name: name, template: link, symbol: link.hasPrefix("http") ? "link" : "arrow.up.forward.app")
+            let openWith = (item["openWith"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            return Quicklink(name: name, template: link, symbol: link.hasPrefix("http") ? "link" : "arrow.up.forward.app", openWith: openWith)
         }
     }
 
@@ -24,13 +25,31 @@ public struct Quicklink: Codable, Sendable, Hashable, Identifiable {
     public var keyword: String?
     /// SF Symbol name for the row.
     public var symbol: String
+    /// App to open it with: a bundle identifier, an app path, or an app name (Raycast exports
+    /// names). nil = the system default for the link (your default browser for web links).
+    public var openWith: String?
 
-    public init(id: UUID = UUID(), name: String, template: String, keyword: String? = nil, symbol: String = "link") {
+    public init(id: UUID = UUID(), name: String, template: String, keyword: String? = nil, symbol: String = "link", openWith: String? = nil) {
         self.id = id
         self.name = name
         self.template = template
         self.keyword = keyword
         self.symbol = symbol
+        self.openWith = openWith
+    }
+
+    /// A starting point from something typed or pasted: "github.com/x" → https://github.com/x,
+    /// named after the site. nil when the text doesn't look like a link.
+    public static func draft(from text: String) -> Quicklink? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.contains(" ") else { return nil }
+        let hasScheme = trimmed.range(of: #"^[a-zA-Z][a-zA-Z0-9+.-]*://"#, options: .regularExpression) != nil
+        guard hasScheme || trimmed.range(of: #"^[\w-]+(\.[\w-]+)+(:\d+)?(/.*)?$"#, options: .regularExpression) != nil else { return nil }
+        let template = hasScheme ? trimmed : "https://" + trimmed
+        guard let url = URL(string: template) else { return nil }
+        let host = (url.host() ?? "").replacingOccurrences(of: "www.", with: "")
+        let site = host.split(separator: ".").first.map { $0.prefix(1).uppercased() + $0.dropFirst() } ?? "Link"
+        return Quicklink(name: url.scheme?.hasPrefix("http") == true ? site : trimmed, template: template, symbol: "link")
     }
 
     public var needsQuery: Bool { template.contains("{query}") }

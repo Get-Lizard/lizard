@@ -19,6 +19,7 @@ final class LauncherModel {
         case ports
         case processes
         case quicklinks
+        case quicklinkEditor(Quicklink, isNew: Bool)
         case aiJob(AIJob)
         case knowledge(query: String, ask: Bool)
         case translate(String)
@@ -179,7 +180,8 @@ final class LauncherModel {
     private func searchSemantically() {
         semanticTask?.cancel()
         let text = query.trimmingCharacters(in: .whitespaces)
-        guard text.count >= 4, let app else { return }
+        // A typed link isn't a question for your notes.
+        guard text.count >= 4, Quicklink.draft(from: text) == nil, let app else { semanticItems = []; return }
         semanticTask = Task {
             try? await Task.sleep(for: .milliseconds(250))
             guard !Task.isCancelled else { return }
@@ -199,7 +201,21 @@ final class LauncherModel {
     /// Always-present actions for typed text: ask AI, quicklinks.
     private func fallbacks(for query: String) -> [LauncherItem] {
         guard let app else { return [] }
-        var items = [
+        var items: [LauncherItem] = []
+        // Typed (or pasted) a link: offer to keep it as a quicklink, first.
+        if let draft = Quicklink.draft(from: query) {
+            items.append(LauncherItem(id: "fallback.open-link", title: "Open Link", subtitle: draft.template,
+                icon: .symbol("safari", .blue), kind: .quicklink) { [weak app] in
+                app?.openQuicklink(Quicklink(name: draft.name, template: draft.template.replacingOccurrences(of: "{", with: "%7B")), query: "")
+                return false
+            })
+            items.append(LauncherItem(id: "fallback.save-quicklink", title: "Save as Quicklink", subtitle: draft.template,
+                icon: .symbol("link.badge.plus", .blue), kind: .quicklink) { [weak self] in
+                self?.push(.quicklinkEditor(draft, isNew: true))
+                return true
+            })
+        }
+        items += [
             LauncherItem(id: "fallback.ai", title: "Ask AI", subtitle: query, icon: .symbol("sparkles", Brand.moss), kind: .ai) { [weak self] in
                 self?.askAI()
                 return true
