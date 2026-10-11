@@ -134,6 +134,8 @@ public enum ProcessRunner {
                     continuation.resume(throwing: ProcessError.launchFailed(commandLine, underlying: error.localizedDescription))
                     return
                 }
+                // Cancelled before it started: `onCancel` saw nothing running, so stop it now.
+                if Task.isCancelled { process.terminate() }
                 if let timeout {
                     // Cancelled when the process exits, so a 10-minute timeout doesn't leave a
                     // sleeping task (holding the Process) behind every quick command.

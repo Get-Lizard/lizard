@@ -62,6 +62,15 @@ import Testing
         #expect(Date().timeIntervalSince(start) < 3)
     }
 
+    @Test func cancellingBeforeLaunchStillStops() async throws {
+        let task = Task { try await ProcessRunner.run("/bin/sleep", ["5"]) }
+        task.cancel()  // most likely before the process has started
+        let start = Date()
+        let result = try await task.value
+        #expect(!result.succeeded)
+        #expect(Date().timeIntervalSince(start) < 3)
+    }
+
     @Test func backgroundProcesses() async throws {
         let exited = Mutex<Int32?>(nil)
         let lines = Mutex<[String]>([])
