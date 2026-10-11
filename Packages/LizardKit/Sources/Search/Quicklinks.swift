@@ -105,9 +105,18 @@ public actor QuicklinkStore {
 
     /// Adds links whose template isn't already present; returns how many were added.
     @discardableResult
+    /// Adds links that aren't here yet (same URL, or same name, counts as here: Raycast's
+    /// "Search Google" shouldn't sit next to Lizard's own). Returns how many were added.
     public func merge(_ newLinks: [Quicklink]) -> Int {
-        let existing = Set(links.map(\.template))
-        let added = newLinks.filter { !existing.contains($0.template) }
+        var templates = Set(links.map(\.template))
+        var names = Set(links.map { $0.name.lowercased() })
+        var added: [Quicklink] = []
+        for link in newLinks where !templates.contains(link.template) && !names.contains(link.name.lowercased()) {
+            added.append(link)
+            templates.insert(link.template)
+            names.insert(link.name.lowercased())
+        }
+        guard !added.isEmpty else { return 0 }
         links += added
         persist()
         return added.count

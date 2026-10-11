@@ -573,3 +573,17 @@ enum ProcessRunnerHelper {
         #expect(!category.title.isEmpty && !category.symbol.isEmpty)
     }
 }
+
+@Suite struct QuicklinkMergeTests {
+    @Test func skipsSameNameAndSameURLAndReportsOnlyNewOnes() async throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "ql-\(UUID()).json")
+        let store = QuicklinkStore(url: url)
+        let before = await store.links.count
+        let first = await store.merge([Quicklink(name: "Search Google", template: "https://google.com/search?q={query}"),
+                                       Quicklink(name: "Calendly", template: "https://calendly.com/me")])
+        #expect(first == 1)  // "Search Google" is already a built-in
+        let again = await store.merge([Quicklink(name: "calendly", template: "https://calendly.com/other")])
+        #expect(again == 0)
+        #expect(await store.links.count == before + 1)
+    }
+}

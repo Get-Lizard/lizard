@@ -179,7 +179,7 @@ struct RaycastImportView: View {
 struct RaycastQuicklinksImport: View {
     @Environment(AppModel.self) private var app
 
-    enum Phase: Equatable { case idle, waiting, imported(Int), failed(String) }
+    enum Phase: Equatable { case idle, waiting, imported(added: Int, total: Int), failed(String) }
 
     @State private var phase: Phase = .idle
     @State private var since = Date.now.addingTimeInterval(-5)
@@ -243,12 +243,19 @@ struct RaycastQuicklinksImport: View {
                 ProgressView().controlSize(.mini)
                 Text("Watching Downloads for your export…").font(.caption).foregroundStyle(.secondary)
             }
-        case .imported(let count):
-            Label("Imported \(count) quicklink\(count == 1 ? "" : "s")", systemImage: "checkmark.circle.fill")
+        case .imported(let added, let total):
+            Label(Self.summary(added: added, total: total), systemImage: "checkmark.circle.fill")
                 .font(.caption.weight(.semibold)).foregroundStyle(Brand.moss)
         case .failed(let message):
             Label(message, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.orange)
         }
+    }
+
+    static func summary(added: Int, total: Int) -> String {
+        let plural = { (n: Int) in n == 1 ? "quicklink" : "quicklinks" }
+        if added == total { return "Imported \(added) \(plural(added))" }
+        if added == 0 { return total == 1 ? "Already in Lizard" : "All \(total) are already in Lizard" }
+        return "Imported \(added) new \(plural(added)) (\(total - added) already in Lizard)"
     }
 
     private func step<Content: View>(_ number: Int, @ViewBuilder content: () -> Content) -> some View {
@@ -319,7 +326,7 @@ struct RaycastQuicklinksImport: View {
         Task {
             let added = await app.quicklinks.merge(links)
             app.quicklinksChanged()
-            withAnimation(.smooth) { phase = .imported(added) }
+            withAnimation(.smooth) { phase = .imported(added: added, total: links.count) }
         }
         return true
     }
