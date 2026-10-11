@@ -169,10 +169,14 @@ public actor ExtensionStore {
     public nonisolated static func raycastExtensions() -> [(folder: URL, manifest: ExtensionManifest)] {
         let root = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".config/raycast/extensions", directoryHint: .isDirectory)
         let folders = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? []
-        return folders.compactMap { folder in
+        let found = folders.compactMap { folder -> (folder: URL, manifest: ExtensionManifest)? in
             guard folder.lastPathComponent != "node_modules", let manifest = try? ExtensionManifest.load(from: folder) else { return nil }
             return (folder, manifest)
-        }.sorted { $0.manifest.title < $1.manifest.title }
+        }
+        // A store install and a developer copy share a name: list it once, newest copy wins.
+        func modified(_ url: URL) -> Date { (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast }
+        let newest = Dictionary(grouping: found, by: \.manifest.name).compactMap { $0.value.max { modified($0.folder) < modified($1.folder) } }
+        return newest.sorted { $0.manifest.title < $1.manifest.title }
     }
 
     /// Imports a Raycast-installed extension: its compiled command bundles run as-is (no network, no build).

@@ -142,13 +142,10 @@ struct RaycastImportView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Import from Raycast").font(.title2.weight(.semibold))
-            Text("Your Raycast extensions run in Lizard as they are. Their saved data and quicklinks are encrypted by Raycast, so bring quicklinks over with Raycast's own export (below).")
+            Text("Your Raycast extensions run in Lizard as they are. Raycast keeps quicklinks encrypted, so they come over through Raycast's own export, guided below.")
                 .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             RaycastExtensionPicker(available: available, selected: $selected)
-            HStack {
-                Button("Import Quicklinks JSON…") { importQuicklinks() }
-                Text("In Raycast: Search Quicklinks › ⌘K › Export Quicklinks").font(.caption).foregroundStyle(.secondary)
-            }
+            RaycastQuicklinksImport()
             if let result { Text(result).font(.callout).foregroundStyle(Brand.moss) }
             HStack {
                 Spacer()
@@ -173,18 +170,158 @@ struct RaycastImportView: View {
             selected = Set(available.filter { !installed.contains($0.manifest.name) }.map(\.folder))
         }
     }
+}
 
-    private func importQuicklinks() {
+/// Quicklinks from Raycast in three guided steps. Raycast encrypts its database, so its own
+/// "Export Quicklinks" is the only way out. After "Open Raycast", Lizard watches Downloads for the
+/// export (macOS asks once for Downloads access, so watching never starts before that click);
+/// files saved elsewhere come in by drop or "Choose File…".
+struct RaycastQuicklinksImport: View {
+    @Environment(AppModel.self) private var app
+
+    enum Phase: Equatable { case idle, waiting, imported(Int), failed(String) }
+
+    @State private var phase: Phase = .idle
+    @State private var since = Date.now.addingTimeInterval(-5)
+    @State private var dropping = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Quicklinks", systemImage: "link").font(.headline)
+                Spacer()
+                status
+            }
+            step(1) {
+                HStack(spacing: 8) {
+                    Text("Open Raycast")
+                    Button("Open Raycast") { openRaycast() }.controlSize(.small)
+                }
+            }
+            step(2) {
+                HStack(spacing: 4) {
+                    Text("Type")
+                    Text("Search Quicklinks").fontWeight(.semibold)
+                    Text("and press ↩, then")
+                    KeyCap(text: "⌘K")
+                    Text("and choose")
+                    Text("Export Quicklinks").fontWeight(.semibold)
+                }
+            }
+            step(3) {
+                HStack(spacing: 8) {
+                    Text("Save it to Downloads and Lizard imports it by itself. Elsewhere? Drop it here or")
+                    Button("Choose File…") { chooseFile() }.controlSize(.small)
+                }
+            }
+            if phase == .idle {
+                Text("macOS will ask once to let Lizard look in your Downloads folder.")
+                    .font(.caption).foregroundStyle(.secondary).padding(.leading, 30)
+            }
+        }
+        .font(.callout)
+        .padding(12)
+        .background(dropping ? Brand.moss.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .surface()
+        .onDrop(of: [.fileURL], isTargeted: $dropping) { providers in
+            _ = providers.first?.loadObject(ofClass: URL.self) { url, _ in
+                guard let url else { return }
+                Task { @MainActor in importFile(url, explicit: true) }
+            }
+            return true
+        }
+        .task(id: phase == .waiting) { if phase == .waiting { await watchForExport() } }
+    }
+
+    @ViewBuilder
+    private var status: some View {
+        switch phase {
+        case .idle:
+            EmptyView()
+        case .waiting:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.mini)
+                Text("Watching Downloads for your export…").font(.caption).foregroundStyle(.secondary)
+            }
+        case .imported(let count):
+            Label("Imported \(count) quicklink\(count == 1 ? "" : "s")", systemImage: "checkmark.circle.fill")
+                .font(.caption.weight(.semibold)).foregroundStyle(Brand.moss)
+        case .failed(let message):
+            Label(message, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.orange)
+        }
+    }
+
+    private func step<Content: View>(_ number: Int, @ViewBuilder content: () -> Content) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text("\(number)")
+                .font(.caption.weight(.bold)).foregroundStyle(Brand.moss)
+                .frame(width: 20, height: 20)
+                .background(Brand.moss.opacity(0.15), in: Circle())
+            content()
+        }
+    }
+
+    private func chooseFile() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
+        panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser.appending(path: "Downloads")
         NSApp.activate(ignoringOtherApps: true)
-        guard panel.runModal() == .OK, let url = panel.url, let data = try? Data(contentsOf: url) else { return }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        importFile(url, explicit: true)
+    }
+
+    private func openRaycast() {
+        since = Date.now.addingTimeInterval(-5)
+        if phase != .waiting { phase = .waiting }
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.raycast.macos") {
+            NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+        }
+    }
+
+    /// Polls the usual save folders for a new JSON file that parses as a Raycast quicklinks export.
+    private func watchForExport() async {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let folders = [home.appending(path: "Downloads", directoryHint: .isDirectory)]
+        var tried: Set<URL> = []
+        while !Task.isCancelled {
+            if case .imported = phase { return }
+            let cutoff = since
+            let candidates = await Task.detached(priority: .utility) { Self.recentJSON(in: folders, since: cutoff) }.value
+            for url in candidates where !tried.contains(url) {
+                tried.insert(url)
+                if importFile(url, explicit: false) { return }
+            }
+            try? await Task.sleep(for: .seconds(1))
+        }
+    }
+
+    nonisolated static func recentJSON(in folders: [URL], since cutoff: Date) -> [URL] {
+        var result: [URL] = []
+        for folder in folders {
+            let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+            for url in files where url.pathExtension.lowercased() == "json" {
+                let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast
+                if modified > cutoff { result.append(url) }
+            }
+        }
+        return result
+    }
+
+    /// True when the file was a quicklinks export and got imported.
+    @discardableResult
+    private func importFile(_ url: URL, explicit: Bool) -> Bool {
+        guard let data = try? Data(contentsOf: url) else { return false }
         let links = Quicklink.fromRaycastExport(data)
+        guard !links.isEmpty else {
+            if explicit { phase = .failed("That file isn't a Raycast quicklinks export") }
+            return false
+        }
         Task {
             let added = await app.quicklinks.merge(links)
             app.quicklinksChanged()
-            result = links.isEmpty ? "That file doesn't look like a Raycast quicklinks export." : "Imported \(added) quicklinks."
+            withAnimation(.smooth) { phase = .imported(added) }
         }
+        return true
     }
 }
 
