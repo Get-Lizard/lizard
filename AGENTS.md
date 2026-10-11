@@ -293,9 +293,10 @@ Lizard deliberately has **no store**: any GitHub repo folder is an extension sou
   front app. Use `AppModel.bringToFront` (`activate(ignoringOtherApps:)` + `orderFrontRegardless`).
 - **Status items invisible:** on notched MacBooks with full menu bars, macOS hides the *leftmost* items behind the
   notch, and each new item is added to the left. So Lizard's own icon is a manual `NSStatusItem` (`LizardStatusItem`,
-  not a SwiftUI `MenuBarExtra`) created **after** extension items; if an extension item is still hidden
-  (`window.occlusionState` lacks `.visible`), Lizard hides its own icon once to make room. Saved positions
-  (`NSStatusItem Preferred Position lizard.*`) from older builds are cleared once (`Lizard.StatusItemOrderV2`).
+  not a SwiftUI `MenuBarExtra`) created **before** extension items, so the gecko sits next to the clock (the user
+  wants it there). Lizard never hides its own icon automatically; hidden extension items (`window.occlusionState`
+  lacks `.visible`) are flagged in Settings › Extensions instead. Saved positions/visibility from older builds are
+  cleared once and an auto-hidden gecko restored (`Lizard.StatusItemOrderV3`).
 - **Focus:** when the panel reopens, `FloatingPanelController.focusTypingField()` restores the last text field or picks
   the topmost editable one (retried after layout) — SwiftUI `.onAppear` focus doesn't fire again on re-show.
 - **Settings scene:** SwiftUI's `Settings` scene can't be opened reliably from AppKit code in an accessory app, so Lizard

@@ -84,11 +84,11 @@ final class ExtensionsModel {
     func start() {
         Task {
             Self.forgetOldStatusItemPositions()
+            // Lizard's own icon first: macOS puts newer items to the left, so the gecko sits next
+            // to the clock and extension icons line up beside it. People can ⌘-drag to reorder.
+            app?.statusItem.install()
             await reload()
             startEnabledMenuBars()
-            // Lizard's own icon last: macOS puts newer items to the left, so extension icons stay
-            // nearer the clock and Lizard's gecko is the one that gets crowded out first.
-            app?.statusItem.install()
             // Check GitHub for new versions shortly after launch, then every 6 hours.
             try? await Task.sleep(for: .seconds(60))
             while !Task.isCancelled {
@@ -395,24 +395,24 @@ final class ExtensionsModel {
     }
 
     func menuBarVisibilityChanged() {
+        // Shown in Settings (with a hint to ⌘-drag or hide other icons). Lizard never hides its own
+        // icon by itself: people look for the gecko next to the clock.
         hiddenMenuBars = Set(menuBars.filter { $0.value.isHiddenByMenuBar }.map(\.key))
-        // Make room: Lizard is always reachable with its hotkey, extension icons aren't.
-        if !hiddenMenuBars.isEmpty, app?.statusItem.isShown == true, !UserDefaults.standard.bool(forKey: "Lizard.MadeRoomOnce") {
-            UserDefaults.standard.set(true, forKey: "Lizard.MadeRoomOnce")
-            Preferences.showMenuBarIcon = false
-            app?.statusItem.setShown(false)
-            app?.showHUD("Made room in the menu bar by hiding Lizard's icon. \(LauncherShortcut.display) still opens Lizard")
-            for controller in menuBars.values { controller.recheckVisibility() }
-        }
     }
 
-    /// Earlier builds created items in a different order; let macOS place them fresh once.
+    /// Earlier builds created items in a different order and could hide the gecko to make room;
+    /// once, let macOS place everything fresh and bring the gecko back.
     private static func forgetOldStatusItemPositions() {
-        guard !UserDefaults.standard.bool(forKey: "Lizard.StatusItemOrderV2") else { return }
-        for key in UserDefaults.standard.dictionaryRepresentation().keys where key.hasPrefix("NSStatusItem Preferred Position lizard.") {
-            UserDefaults.standard.removeObject(forKey: key)
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: "Lizard.StatusItemOrderV3") else { return }
+        for key in defaults.dictionaryRepresentation().keys
+        where key.hasPrefix("NSStatusItem Preferred Position lizard.") || key.hasPrefix("NSStatusItem VisibleCC lizard.") {
+            defaults.removeObject(forKey: key)
         }
-        UserDefaults.standard.set(true, forKey: "Lizard.StatusItemOrderV2")
+        if defaults.bool(forKey: "Lizard.MadeRoomOnce") { Preferences.showMenuBarIcon = true }
+        defaults.removeObject(forKey: "Lizard.MadeRoomOnce")
+        defaults.removeObject(forKey: "Lizard.StatusItemOrderV2")
+        defaults.set(true, forKey: "Lizard.StatusItemOrderV3")
     }
 
     func stopAll() {

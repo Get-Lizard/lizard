@@ -74,7 +74,7 @@ private struct GeneralSettings: View {
                         Preferences.showMenuBarIcon = on
                         app.statusItem.setShown(on)
                     }
-                Text("Lizard hides its own icon automatically when extension icons (like GitHub) need the room. \(LauncherShortcut.display) always opens Lizard.")
+                Text("The gecko sits next to the clock. If the menu bar is full, turn this off to make room for extension icons; \(LauncherShortcut.display) always opens Lizard.")
                     .font(.caption).foregroundStyle(.secondary)
                 Toggle("Reopen where I left off", isOn: $resume)
                     .onChange(of: resume) { _, on in Preferences.resumeLauncher = on }

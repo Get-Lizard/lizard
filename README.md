@@ -359,8 +359,8 @@ Sign-in uses the **GitHub CLI**, so you never handle a token:
 
 - **I can't see Lizard's (or GitHub's) menu-bar icon.** On MacBooks with a notch and a full menu bar, macOS hides the
   leftmost icons behind the notch.
-  - Lizard gives extension icons priority and hides its own gecko to make room. Your launcher shortcut always works, and Settings ›
-    General brings the gecko back.
+  - The gecko sits next to the clock. If the bar is full, turn it off in Settings › General to make room for
+    extension icons; your launcher shortcut always works.
   - Free space with **⌘-drag** (drag icons out of the menu bar) or in System Settings › Menu Bar.
   - Running the command from the launcher (e.g. *My Pull Requests*) opens its menu at your pointer.
 - **Paste, window moves or "selected text" don't work.** Allow Lizard under System Settings › Privacy & Security ›
