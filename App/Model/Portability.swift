@@ -25,19 +25,28 @@ struct PortableSnapshot: Codable {
 }
 
 enum Portability {
-    /// UserDefaults keys that travel: Lizard settings and the recorded shortcuts.
+    /// Keys that belong to this Mac (folders, setup progress, system changes Lizard made here).
+    private static let deviceOnly: Set<String> = [
+        "Lizard.SetupCompleted", "Lizard.SetupStep", "Lizard.NotesFolder", "Lizard.WorkLogFolder", "Lizard.iCloudSync",
+        "Lizard.DeviceID", "Lizard.SpotlightShortcutDisabled", "Lizard.StatusItemOrderV3",
+    ]
+
+    /// UserDefaults keys that travel: Lizard settings and the recorded shortcuts. Applied with the
+    /// same rule, so a backup or another Mac can't write anything else (folders, system keys…).
+    static func isPortable(_ key: String) -> Bool {
+        (key.hasPrefix("Lizard.") || key.hasPrefix("KeyboardShortcuts_")) && !deviceOnly.contains(key)
+    }
+
     static func portableSettings() -> [String: Data] {
-        let skip: Set<String> = ["Lizard.SetupCompleted", "Lizard.SetupStep", "Lizard.NotesFolder", "Lizard.WorkLogFolder", "Lizard.iCloudSync"]
         var result: [String: Data] = [:]
-        for (key, value) in UserDefaults.standard.dictionaryRepresentation()
-        where (key.hasPrefix("Lizard.") || key.hasPrefix("KeyboardShortcuts_")) && !skip.contains(key) {
+        for (key, value) in UserDefaults.standard.dictionaryRepresentation() where isPortable(key) {
             if let data = try? PropertyListSerialization.data(fromPropertyList: value, format: .binary, options: 0) { result[key] = data }
         }
         return result
     }
 
     static func applySettings(_ settings: [String: Data]) {
-        for (key, data) in settings {
+        for (key, data) in settings where isPortable(key) {
             if let value = try? PropertyListSerialization.propertyList(from: data, format: nil) { UserDefaults.standard.set(value, forKey: key) }
         }
     }
@@ -126,6 +135,11 @@ enum BackupService {
         await app.quicklinks.replaceAll(snapshot.quicklinks)
 
         for entry in snapshot.extensions {
+            // Names come from the backup file: never let one point outside its folder.
+            guard ExtensionStore.isSafeName(entry.name) else {
+                progress("Skipped an extension with an invalid name")
+                continue
+            }
             progress("Installing \(entry.name)…")
             let saved = root.appending(path: "extensions/\(entry.name)", directoryHint: .isDirectory)
             do {

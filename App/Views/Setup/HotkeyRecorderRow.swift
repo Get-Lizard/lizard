@@ -55,8 +55,8 @@ struct LauncherShortcutPicker: View {
     private enum Choice { case commandSpace, controlSpace, other }
 
     private var choice: Choice {
-        if preselectCommandSpace, !LauncherShortcut.hasChosen { return .commandSpace }
         if showRecorder { return .other }
+        if preselectCommandSpace, !LauncherShortcut.hasChosen { return .commandSpace }
         if LauncherShortcut.same(current, LauncherShortcut.commandSpace) { return .commandSpace }
         if LauncherShortcut.same(current, LauncherShortcut.controlSpace) { return .controlSpace }
         return .other
@@ -72,7 +72,10 @@ struct LauncherShortcutPicker: View {
                     choose(LauncherShortcut.controlSpace)
                 }
                 option(.other, keys: ["…"], title: "Your own", detail: "Record any shortcut") {
-                    showRecorder = true
+                    withAnimation(.snappy) { showRecorder = true }
+                    // A deliberate choice: Continue must not switch to ⌘Space behind the person's back.
+                    LauncherShortcut.hasChosen = true
+                    Task { await SpotlightShortcut.sync(launcher: LauncherShortcut.current); spotlightOn = SpotlightShortcut.isEnabled }
                 }
             }
             if choice == .other {

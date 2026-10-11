@@ -52,7 +52,7 @@ struct ExtensionImage: View {
             }
             .frame(width: size, height: size)
             .clipShape(mask == "circle" ? AnyShape(Circle()) : AnyShape(RoundedRectangle(cornerRadius: size * 0.2, style: .continuous)))
-        } else if let url = fileURL(source), let nsImage = NSImage(contentsOf: url) {
+        } else if let url = fileURL(source), let nsImage = ExtensionImageCache.image(at: url) {
             Image(nsImage: nsImage)
                 .resizable()
                 .renderingMode(tint == nil ? .original : .template)
@@ -71,8 +71,20 @@ struct ExtensionImage: View {
         if source.hasPrefix("/") { return URL(filePath: source) }
         if source.hasPrefix("file://") { return URL(string: source) }
         guard let assets else { return nil }
-        let url = assets.appending(path: source)
-        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+        return assets.appending(path: source)
+    }
+}
+
+/// Decoded local images, so re-rendering a list doesn't hit the disk for every row.
+@MainActor
+enum ExtensionImageCache {
+    private static let images = NSCache<NSURL, NSImage>()
+
+    static func image(at url: URL) -> NSImage? {
+        if let cached = images.object(forKey: url as NSURL) { return cached }
+        guard let image = NSImage(contentsOf: url) else { return nil }
+        images.setObject(image, forKey: url as NSURL)
+        return image
     }
 }
 

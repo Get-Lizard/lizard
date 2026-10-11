@@ -444,7 +444,8 @@ struct MetadataView: View {
                 case "Metadata.Link":
                     VStack(alignment: .leading, spacing: 2) {
                         Text(item.string("title") ?? "").font(.caption).foregroundStyle(.secondary)
-                        if let target = item.string("target"), let url = URL(string: target) {
+                        // Extensions are third-party code: only web and mail links, never app or file schemes.
+                        if let target = item.string("target"), let url = URL(string: target), ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") {
                             Link(item.string("text") ?? target, destination: url).font(.callout)
                         }
                     }

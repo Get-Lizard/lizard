@@ -35,7 +35,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        model.toggleLauncher()
+        // Dock icon (shown while Setup/Settings is open) brings that window back; otherwise
+        // reopening the app from Finder opens the launcher.
+        if !model.reopenWindows() { model.toggleLauncher() }
         return false
     }
 }

@@ -16,10 +16,14 @@ struct PerformanceReviewView: View {
     @State private var customEnd = Date.now
     @State private var focus = ""
     @FocusState private var focusField: Bool
+    /// Loaded off the main thread whenever the period changes (a year spans 13 files).
+    @State private var entries: [WorkLogEntry] = []
+
+    /// Changes only when the chosen period does (not every second, as `range.end` would).
+    private var periodKey: String { "\(period.rawValue)|\(customStart.timeIntervalSince1970)|\(customEnd.timeIntervalSince1970)" }
 
     var body: some View {
         let range = self.range
-        let entries = app.workLog.entries(from: range.start, to: range.end)
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Button { app.launcher.pop() } label: { Image(systemName: "chevron.left") }.buttonStyle(.borderless)
@@ -83,6 +87,11 @@ struct PerformanceReviewView: View {
             }
         }
         .onAppear { focusField = true }
+        .task(id: periodKey) {
+            let store = app.workLog
+            let span = range
+            entries = await Task.detached(priority: .userInitiated) { store.entries(from: span.start, to: span.end) }.value
+        }
     }
 
     @ViewBuilder

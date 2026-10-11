@@ -264,6 +264,16 @@ final class AppModel {
 
     // MARK: Search sources
 
+    /// Extension icons, loaded once (search sources are rebuilt on every keystroke).
+    @ObservationIgnored private let extensionIcons = NSCache<NSURL, NSImage>()
+
+    private func extensionIcon(_ url: URL) -> NSImage? {
+        if let cached = extensionIcons.object(forKey: url as NSURL) { return cached }
+        guard let image = NSImage(contentsOf: url) else { return nil }
+        extensionIcons.setObject(image, forKey: url as NSURL)
+        return image
+    }
+
     /// Everything the launcher can find, as rows.
     func searchSources(apps: [AppEntry]) -> [LauncherItem] {
         var items: [LauncherItem] = builtInCommands()
@@ -284,7 +294,7 @@ final class AppModel {
         }
         for (installed, command) in extensions.commands {
             let subtitle = extensions.subtitles["\(installed.name)/\(command.name)"] ?? installed.title
-            let icon: LauncherItem.Icon = installed.iconURL.flatMap { NSImage(contentsOf: $0) }.map { .image($0) } ?? .symbol("puzzlepiece.extension", Brand.teal)
+            let icon: LauncherItem.Icon = installed.iconURL.flatMap(extensionIcon).map { .image($0) } ?? .symbol("puzzlepiece.extension", Brand.teal)
             items.append(LauncherItem(id: "ext:\(installed.name)/\(command.name)", title: command.title, subtitle: subtitle, icon: icon, kind: .extensionCommand,
                 accessory: command.mode == .menuBar ? "Menu Bar" : nil) { [weak self] in
                 self?.extensions.launch(installed, command)
@@ -461,27 +471,32 @@ final class AppModel {
     func showSetup() {
         if let setupWindow {
             Self.bringToFront(setupWindow)
+            updateDockPresence()
             return
         }
-        let window = makeWindow(title: "Welcome to Lizard", size: NSSize(width: 640, height: 560)) {
+        // Assigned before makeWindow returns its first activation, so the Dock icon appears at once.
+        setupWindow = makeWindow(title: "Welcome to Lizard", size: NSSize(width: 640, height: 560)) {
             SetupView { [weak self] in
                 self?.setupWindow?.close()
                 self?.setupWindow = nil
+                self?.updateDockPresence()
             }
             .environment(self)
         }
-        setupWindow = window
+        updateDockPresence()
     }
 
     func openSettings() {
         hideLauncher()
         if let settingsWindow {
             Self.bringToFront(settingsWindow)
+            updateDockPresence()
             return
         }
         settingsWindow = makeWindow(title: "Lizard Settings", size: NSSize(width: 640, height: 560)) {
             SettingsView().environment(self)
         }
+        updateDockPresence()
     }
 
     private func makeWindow<Content: View>(title: String, size: NSSize, @ViewBuilder content: () -> Content) -> NSWindow {
@@ -491,8 +506,39 @@ final class AppModel {
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: content())
         window.center()
+        NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                // Wait until the window is actually gone before deciding.
+                DispatchQueue.main.async { self?.updateDockPresence() }
+            }
+        }
         Self.bringToFront(window)
+        updateDockPresence()
         return window
+    }
+
+    /// Lizard is a menu-bar app, but while Setup or Settings is open it behaves like a normal app:
+    /// a Dock icon and a ⌘Tab entry, so the window can't get lost behind other apps.
+    func updateDockPresence() {
+        let windowOpen = [setupWindow, settingsWindow].contains { $0?.isVisible == true }
+        let policy: NSApplication.ActivationPolicy = windowOpen ? .regular : .accessory
+        guard NSApp.activationPolicy() != policy else { return }
+        NSApp.setActivationPolicy(policy)
+        if windowOpen { NSApp.activate(ignoringOtherApps: true) }
+    }
+
+    /// Dock icon clicked: bring back whichever window is open. False when none is.
+    @discardableResult
+    func reopenWindows() -> Bool {
+        if let setupWindow, setupWindow.isVisible || !SetupModel.hasCompletedSetup {
+            Self.bringToFront(setupWindow)
+        } else if let settingsWindow, settingsWindow.isVisible {
+            Self.bringToFront(settingsWindow)
+        } else {
+            return false
+        }
+        updateDockPresence()
+        return true
     }
 
     /// Accessory apps aren't activated by `activate()` without a user click; force it.

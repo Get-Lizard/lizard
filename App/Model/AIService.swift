@@ -33,7 +33,16 @@ final class AIService {
 
     var appleAvailable: Bool { AppleIntelligence.isAvailable }
     var localModel: LocalModel? { ModelCatalog.model(id: settings.mlxModelID) }
-    var isLocalModelDownloaded: Bool { ModelStore.isDownloaded(settings.mlxModelID) }
+    /// Checking means listing the model folder, and chat views ask on every streamed token, so
+    /// the answer is cached per model and refreshed when a download finishes.
+    @ObservationIgnored private var downloadedModels: [String: Bool] = [:]
+    var isLocalModelDownloaded: Bool {
+        let id = settings.mlxModelID
+        if let known = downloadedModels[id] { return known }
+        let downloaded = ModelStore.isDownloaded(id)
+        downloadedModels[id] = downloaded
+        return downloaded
+    }
 
     /// Providers in the order they should be tried. MLX is only offered once downloaded, so a
     /// chat never silently starts a multi-GB download.
@@ -62,6 +71,7 @@ final class AIService {
             defer { downloadTask = nil }
             do {
                 try await performDownload(modelID)
+                downloadedModels.removeAll()
                 download = .done
             } catch is CancellationError {
                 download = .idle

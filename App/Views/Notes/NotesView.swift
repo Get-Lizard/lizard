@@ -23,6 +23,8 @@ struct NotesView: View {
     @State private var selected: URL?
     @State private var text = ""
     @State private var reading = false
+    /// The note just deleted or moved away from; its old URL must not be saved again.
+    @State private var retired: URL?
     @State private var saveTask: Task<Void, Never>?
     @State private var suggestion: AppleIntelligence.NoteOrganization?
     @State private var organizing = false
@@ -46,7 +48,9 @@ struct NotesView: View {
             for await _ in await app.notes.changes() { await reload() }
         }
         .onChange(of: selected) { old, new in
-            if let old, old != new { saveNow(to: old) }
+            // A deleted or moved note must not be written back (it would reappear as a new file).
+            if let old, old != new, old != retired { saveNow(to: old) }
+            retired = nil
             if let new { Task { await open(new) } }
         }
         .onDisappear { if let selected { saveNow(to: selected) } }
@@ -285,15 +289,38 @@ struct NotesView: View {
 
     private func move(_ note: Note, to folder: String) {
         Task {
-            let url = try? await app.notes.move(note.url, toFolder: folder)
-            await reload()
-            if selected == note.url { selected = url }
+            let isOpen = selected == note.url
+            do {
+                if isOpen {
+                    // Flush pending edits into the file before it moves.
+                    saveTask?.cancel()
+                    try await app.notes.save(text, to: note.url)
+                }
+                let url = try await app.notes.move(note.url, toFolder: folder)
+                await reload()
+                if isOpen {
+                    retired = note.url
+                    selected = url
+                }
+            } catch {
+                app.showHUD("Couldn't move the note: \(error.localizedDescription)")
+            }
         }
     }
 
     private func delete(_ note: Note) async {
-        try? await app.notes.delete(note.url)
-        if selected == note.url { selected = nil; text = "" }
+        if selected == note.url { saveTask?.cancel() }
+        do {
+            try await app.notes.delete(note.url)
+        } catch {
+            app.showHUD("Couldn't delete the note: \(error.localizedDescription)")
+            return
+        }
+        if selected == note.url {
+            retired = note.url
+            selected = nil
+            text = ""
+        }
         await reload()
     }
 
@@ -311,14 +338,22 @@ struct NotesView: View {
         saveTask = Task {
             try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled else { return }
-            try? await app.notes.save(snapshot, to: url)
+            await write(snapshot, to: url)
         }
     }
 
     private func saveNow(to url: URL) {
         saveTask?.cancel()
         let snapshot = text
-        Task { try? await app.notes.save(snapshot, to: url) }
+        Task { await write(snapshot, to: url) }
+    }
+
+    private func write(_ snapshot: String, to url: URL) async {
+        do {
+            try await app.notes.save(snapshot, to: url)
+        } catch {
+            app.showHUD("Couldn't save \(url.deletingPathExtension().lastPathComponent): \(error.localizedDescription)")
+        }
     }
 }
 

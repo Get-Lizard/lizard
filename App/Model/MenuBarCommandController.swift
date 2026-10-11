@@ -18,6 +18,8 @@ final class MenuBarCommandController: NSObject, NSMenuDelegate {
     /// macOS hides status items that don't fit (e.g. behind the notch when the menu bar is full).
     private(set) var isHiddenByMenuBar = false
     private var warnedHidden = false
+    private var starting = false
+    private var stopped = false
 
     init(installed: InstalledExtension, command: ExtensionManifest.Command, model: ExtensionsModel) {
         self.installed = installed
@@ -36,6 +38,7 @@ final class MenuBarCommandController: NSObject, NSMenuDelegate {
     }
 
     func stop() {
+        stopped = true
         timer?.invalidate()
         runtime?.stop()
         pending?.stop()
@@ -44,10 +47,15 @@ final class MenuBarCommandController: NSObject, NSMenuDelegate {
     }
 
     func refresh(launchType: String = "userInitiated") {
-        guard let model, pending == nil else { return }
+        // Set synchronously so two quick refreshes can't both start a runtime.
+        guard let model, pending == nil, !starting else { return }
+        starting = true
         Task {
+            defer { starting = false }
             do {
                 let runtime = try await model.makeRuntime(installed, command, launchType: launchType)
+                // Stopped while the runtime was starting: don't leak it.
+                guard !stopped else { return runtime.stop() }
                 pending = runtime
                 listen(runtime)
             } catch {

@@ -127,7 +127,7 @@ public actor ExtensionStore {
     /// `package.json` comes from third parties (GitHub, `.lizardext` files, Raycast), and its
     /// `name` and command names become paths under `root`. A name such as `../../Documents` would
     /// otherwise make an install copy over (and an update delete) folders outside Lizard's data.
-    static func isSafeName(_ name: String) -> Bool {
+    public static func isSafeName(_ name: String) -> Bool {
         !name.isEmpty && name.count <= 128 && name != "." && name != ".."
             && name.range(of: #"^[A-Za-z0-9._@-]+$"#, options: .regularExpression) != nil
     }

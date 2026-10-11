@@ -48,7 +48,8 @@ final class ResourceMonitor {
     private func startPolling() {
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
-                await self?.sample()
+                guard let self else { return }
+                await self.sample()
                 try? await Task.sleep(for: .seconds(3))
             }
         }
