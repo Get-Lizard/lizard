@@ -55,6 +55,10 @@ final class SetupModel {
 
     func next() {
         forward = true
+        // ⌘Space is the default offer: applied when leaving the shortcuts page without another pick.
+        if page == .hotkeys, !LauncherShortcut.hasChosen {
+            Task { await LauncherShortcut.use(LauncherShortcut.commandSpace) }
+        }
         if let index = Self.pages.firstIndex(of: page), index + 1 < Self.pages.count { page = Self.pages[index + 1] }
     }
 

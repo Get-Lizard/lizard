@@ -23,6 +23,7 @@ final class LauncherModel {
         case knowledge(query: String, ask: Bool)
         case translate(String)
         case screenshots
+        case performanceReview
         case extensionView(ExtensionSession)
     }
 

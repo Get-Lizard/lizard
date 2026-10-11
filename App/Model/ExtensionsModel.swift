@@ -401,7 +401,7 @@ final class ExtensionsModel {
             UserDefaults.standard.set(true, forKey: "Lizard.MadeRoomOnce")
             Preferences.showMenuBarIcon = false
             app?.statusItem.setShown(false)
-            app?.showHUD("Made room in the menu bar by hiding Lizard's icon. ⌃Space still opens Lizard")
+            app?.showHUD("Made room in the menu bar by hiding Lizard's icon. \(LauncherShortcut.display) still opens Lizard")
             for controller in menuBars.values { controller.recheckVisibility() }
         }
     }

@@ -28,6 +28,6 @@ cask "lizard" do
 
   caveats <<~EOS
     Lizard runs Raycast-compatible extensions with Node.js: brew install node
-    Open Lizard with ⌃Space. Notes, work logs and screenshots you created are kept on uninstall.
+    Open Lizard with ⌘Space (or the shortcut you pick in setup). Notes, work logs and screenshots you created are kept on uninstall.
   EOS
 end

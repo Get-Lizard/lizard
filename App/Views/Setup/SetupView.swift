@@ -124,23 +124,44 @@ private struct PageHeader: View {
 }
 
 private struct WelcomePage: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var revealed = false
+
     var body: some View {
-        VStack(spacing: 18) {
-            LizardMarkView(size: 120)
-                .padding(.top, 24)
-            LizardWordmark(size: 40)
+        VStack(spacing: 12) {
+            WelcomeScene { withAnimation(.smooth(duration: 0.6)) { revealed = true } }
+                .frame(height: 220)
+                .overlay(alignment: .bottom) {
+                    Text("Move your pointer over the gecko, or click it.")
+                        .font(.caption2).foregroundStyle(.white.opacity(0.45))
+                        .padding(.bottom, 10)
+                        .opacity(revealed && !reduceMotion ? 1 : 0)
+                        .animation(.smooth(duration: 0.6).delay(1.4), value: revealed)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Brand.moss.opacity(0.18)))
+                .background(Brand.ink, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            WelcomeWordmark(visible: revealed)
             Text("A fast, private launcher for your Mac.\nApps, notes, clipboard, AI and extensions, one shortcut away.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
-            HStack(spacing: 18) {
-                Feature(symbol: "lock.shield", text: "Runs on your Mac")
-                Feature(symbol: "bolt", text: "Opens instantly")
-                Feature(symbol: "puzzlepiece.extension", text: "Raycast extensions")
+                .opacity(revealed ? 1 : 0)
+                .offset(y: revealed ? 0 : 10)
+                .animation(.smooth(duration: 0.6).delay(0.35), value: revealed)
+            HStack(spacing: 14) {
+                ForEach(Array(Self.features.enumerated()), id: \.offset) { index, feature in
+                    Feature(symbol: feature.0, text: feature.1)
+                        .opacity(revealed ? 1 : 0)
+                        .offset(y: revealed ? 0 : 14)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.55 + Double(index) * 0.08), value: revealed)
+                }
             }
-            .padding(.top, 8)
+            .padding(.top, 4)
         }
         .frame(maxWidth: .infinity)
     }
+
+    private static let features = [("lock.shield", "Runs on your Mac"), ("bolt", "Opens instantly"), ("puzzlepiece.extension", "Raycast extensions")]
 
     private struct Feature: View {
         let symbol: String
@@ -150,7 +171,7 @@ private struct WelcomePage: View {
                 Image(systemName: symbol).font(.title2).foregroundStyle(Brand.moss)
                 Text(text).font(.caption).foregroundStyle(.secondary)
             }
-            .frame(width: 140, height: 70)
+            .frame(width: 140, height: 58)
             .surface()
         }
     }
@@ -158,8 +179,11 @@ private struct WelcomePage: View {
 
 private struct HotkeysPage: View {
     var body: some View {
-        PageHeader(title: "Pick your shortcuts", subtitle: "Click a shortcut and press the keys you want. You can change them any time in Settings.")
-        ForEach(HotkeyAction.all) { action in
+        PageHeader(title: "Pick your shortcuts", subtitle: "Choose how to open Lizard, then adjust the rest if you like. You can change them any time in Settings.")
+        Text("Open Lizard with").font(.headline)
+        LauncherShortcutPicker(preselectCommandSpace: true)
+        Text("Jump straight to").font(.headline).padding(.top, 8)
+        ForEach(HotkeyAction.all.filter { $0.name != .toggleLauncher }) { action in
             HotkeyRecorderRow(action: action)
         }
     }

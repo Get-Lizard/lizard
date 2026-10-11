@@ -83,7 +83,7 @@ xcodebuild -project Lizard.xcodeproj -scheme Lizard -configuration Release \
 open DerivedData/Build/Products/Release/Lizard.app
 ```
 
-Lizard lives in the menu bar (🦎) and has no Dock icon. Press **⌃Space** anywhere to open it.
+Lizard lives in the menu bar (🦎) and has no Dock icon. Press **⌘Space** anywhere to open it (setup offers it and turns off Spotlight's shortcut for you; pick ⌃Space or any other combination instead if you prefer).
 
 ## First run
 
@@ -91,6 +91,7 @@ An animated gecko greets you, then a short setup walks through each step. You ca
 later from **Settings › General › Run setup again**.
 
 1. **Shortcuts:** click a field and press the keys you want.
+   - ⌘Space is preselected. Lizard switches off Spotlight's ⌘Space, and gives it back if you later choose another shortcut.
    - ⌃Space also switches keyboard input sources if you use several layouts; Lizard warns you.
    - ⌘Space belongs to Spotlight; Lizard tells you how to free it.
 2. **Permissions:** **Accessibility** lets Lizard paste into other apps, move windows and read the selected text.
@@ -107,7 +108,7 @@ Every global shortcut can be re-recorded in **Settings › Shortcuts**.
 
 | Global | Action |
 |---|---|
-| **⌃Space** | Open / close Lizard |
+| **⌘Space** | Open / close Lizard (your choice in setup; ⌃Space if you kept Spotlight) |
 | **⌥⇧A** | Ask AI |
 | **⌥⇧V** | Clipboard history |
 | **⌥⇧W** | Work Log |
@@ -133,7 +134,7 @@ Every global shortcut can be re-recorded in **Settings › Shortcuts**.
   and every command.
 - **Ranking:** results come from fuzzy matching (`vsc` → **V**isual **S**tudio **C**ode, matched letters
   highlighted). Things you open often and recently rise to the top.
-- **Reopens where you left off:** open a note, switch apps, press ⌃Space, and you're back in that note. Esc goes back
+- **Reopens where you left off:** open a note, switch apps, press ⌘Space, and you're back in that note. Esc goes back
   to the search, with the cursor already in it. You can turn this off in **Settings › General**.
 - **Panel size:** compact for search; it grows smoothly for roomy screens (Notes, Screenshots, Clipboard…).
 - **Little details:** the gecko wags its tail while you type and flicks its tongue when you summon it. The edge glow
@@ -188,8 +189,15 @@ A two-second habit for remembering what you did.
 - **⌥⇧W** opens a small box. Type what you just finished and press ↩.
 - Each entry is stamped with the time and the app you were in, and appended to a monthly file:
   `- 2026-10-10T14:03:05+02:00 [Xcode] Fixed the flaky login test` in `~/Documents/WorkLogs/2026-10.md`.
-- **Summarize Today's Work**, **Weekly Work Summary** and **Write Brag Document** (from the last 90 days, grouped by
-  impact) turn the log into stand-up notes and review material using the local AI.
+- **Log something from earlier:** the *when* row under the text has one-click **1 hour ago**, **This morning**,
+  **Yesterday** and **Earlier…**. Earlier shows a day stepper and a time field; from the keyboard, **⌘[ / ⌘]** move a day,
+  **⌥↑ / ⌥↓** move 15 minutes and **⌘0** goes back to now. Back-dated lines are slotted into the right month file in time
+  order.
+- **Summarize Today's Work** and **Weekly Work Summary** turn the log into stand-up notes using the local AI.
+- **Performance Review** (launcher command, or *Review…* in the Work Log box): pick *Last month*, *Last 3 months*,
+  *Last 6 months*, *This year*, *Last year* or custom dates (⌘1–⌘6), optionally say what to emphasize, and Lizard writes a
+  self-review: Summary, Key achievements, Projects, Collaboration & leadership, Growth, Next period. It only uses what
+  the log says; long periods are sampled evenly so early months aren't dropped.
 
 ### Clipboard history
 
@@ -235,7 +243,7 @@ A two-second habit for remembering what you did.
 - **Ask AI** (⇥ from the search, or ⌥⇧A): streaming chat with Markdown and code blocks. Stop a reply any time;
   conversations are saved in **AI Chat History**.
 - **One-shot actions:** *Summarize Clipboard*, *Explain Clipboard* (code, errors, commands), *Summarize Today's Work*,
-  *Weekly Work Summary*, *Write Brag Document*. Each opens as a page you can copy or continue as a chat.
+  *Weekly Work Summary*, *Performance Review*. Each opens as a page you can copy or continue as a chat.
 
 ### Translate
 
@@ -350,7 +358,7 @@ Sign-in uses the **GitHub CLI**, so you never handle a token:
 
 - **I can't see Lizard's (or GitHub's) menu-bar icon.** On MacBooks with a notch and a full menu bar, macOS hides the
   leftmost icons behind the notch.
-  - Lizard gives extension icons priority and hides its own gecko to make room. ⌃Space always works, and Settings ›
+  - Lizard gives extension icons priority and hides its own gecko to make room. Your launcher shortcut always works, and Settings ›
     General brings the gecko back.
   - Free space with **⌘-drag** (drag icons out of the menu bar) or in System Settings › Menu Bar.
   - Running the command from the launcher (e.g. *My Pull Requests*) opens its menu at your pointer.

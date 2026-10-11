@@ -4,7 +4,7 @@ import { Sparkle, ClipboardText, ListChecks, Camera, ArrowsLeftRight, Command } 
 const shortcuts = [
   { keys: ["⇥"], label: "Ask AI about what you typed", icon: Sparkle },
   { keys: ["⌥", "⇧", "V"], label: "Clipboard history", icon: ClipboardText },
-  { keys: ["⌥", "⇧", "W"], label: "Log what you just finished", icon: ListChecks },
+  { keys: ["⌥", "⇧", "W"], label: "Log what you finished, now or earlier", icon: ListChecks },
   { keys: ["⌃", "⇧", "S"], label: "Capture and file a screenshot", icon: Camera },
   { keys: ["⌃", "⌥", "←"], label: "Snap a window", icon: ArrowsLeftRight },
   { keys: ["⌘", "K"], label: "Actions for anything", icon: Command },
@@ -30,10 +30,10 @@ export function Shortcuts() {
       <div className="flex flex-col items-start gap-10 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="max-w-[14ch] text-4xl font-semibold leading-[1.05] tracking-[-0.03em] md:text-5xl">Built for the keyboard.</h2>
-          <p className="mt-5 max-w-[44ch] text-[17px] leading-relaxed text-muted">Every shortcut can be re-recorded in setup. The one you will use most:</p>
+          <p className="mt-5 max-w-[44ch] text-[17px] leading-relaxed text-muted">Setup offers ⌘ Space and moves Spotlight out of the way. Prefer ⌃ Space or your own? Pick it in one click.</p>
         </div>
-        <div className="flex items-center gap-4" aria-label="Control Space">
-          <Key big press>⌃</Key>
+        <div className="flex items-center gap-4" aria-label="Command Space">
+          <Key big press>⌘</Key>
           <span className="text-3xl text-faint">+</span>
           <Key big press delay={0.04}>Space</Key>
         </div>

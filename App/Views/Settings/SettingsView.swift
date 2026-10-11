@@ -11,13 +11,16 @@ struct SettingsView: View {
             Tab("General", systemImage: "gearshape") { GeneralSettings() }
             Tab("Shortcuts", systemImage: "keyboard") {
                 Form {
+                    Section("Open Lizard with") {
+                        LauncherShortcutPicker()
+                    }
                     Section("Window management") {
                         ForEach(HotkeyAction.windows) { HotkeyRecorderRow(action: $0) }
                     }
                     Section {
-                        ForEach(HotkeyAction.all) { HotkeyRecorderRow(action: $0) }
+                        ForEach(HotkeyAction.all.filter { $0.name != .toggleLauncher }) { HotkeyRecorderRow(action: $0) }
                     } footer: {
-                        Text("Shortcuts work from any app. ⌃Space can clash with input-source switching if you use several keyboard layouts.")
+                        Text("Shortcuts work from any app.")
                     }
                 }
                 .formStyle(.grouped)
@@ -71,7 +74,7 @@ private struct GeneralSettings: View {
                         Preferences.showMenuBarIcon = on
                         app.statusItem.setShown(on)
                     }
-                Text("Lizard hides its own icon automatically when extension icons (like GitHub) need the room. ⌃Space always opens Lizard.")
+                Text("Lizard hides its own icon automatically when extension icons (like GitHub) need the room. \(LauncherShortcut.display) always opens Lizard.")
                     .font(.caption).foregroundStyle(.secondary)
                 Toggle("Reopen where I left off", isOn: $resume)
                     .onChange(of: resume) { _, on in Preferences.resumeLauncher = on }

@@ -34,6 +34,8 @@ struct LauncherRootView: View {
                 TranslateView(text: text)
             case .screenshots:
                 ScreenshotsView()
+            case .performanceReview:
+                PerformanceReviewView()
             case .extensionView(let session):
                 ExtensionView(session: session)
             }

@@ -5,7 +5,7 @@ import Foundation
 public enum AIJob: Sendable, Equatable {
     case summarize(text: String)
     case summarizeWorkLog(entries: String, period: String)
-    case bragDoc(entries: String)
+    case performanceReview(entries: String, period: String, focus: String)
     case explain(text: String)
     case rewrite(text: String, style: String)
     case answer(question: String)
@@ -14,7 +14,7 @@ public enum AIJob: Sendable, Equatable {
         switch self {
         case .summarize: "Summary"
         case .summarizeWorkLog(_, let period): "Work summary: \(period)"
-        case .bragDoc: "Brag document"
+        case .performanceReview(_, let period, _): "Performance review: \(period)"
         case .explain: "Explanation"
         case .rewrite(_, let style): "Rewritten (\(style))"
         case .answer: "Answer"
@@ -26,7 +26,8 @@ public enum AIJob: Sendable, Equatable {
         switch self {
         case .summarize, .rewrite, .answer: 45
         case .explain: 60
-        case .summarizeWorkLog, .bragDoc: 120
+        case .summarizeWorkLog: 120
+        case .performanceReview: 180
         }
     }
 
@@ -43,12 +44,17 @@ public enum AIJob: Sendable, Equatable {
                 Group by theme with short markdown headings, merge duplicates, keep ticket numbers and names, \
                 and end with a "Next" line if the log hints at follow-ups. Be factual; never invent work.
                 """, String(entries.suffix(16_000)), 900)
-        case .bragDoc(let entries):
+        case .performanceReview(let entries, let period, let focus):
+            let emphasis = focus.isEmpty ? "" : " The author wants to emphasize: \(focus). Highlight evidence for it only where the log supports it."
             return ("""
-                You write a brag document for a performance review from a software engineer's work log. \
-                Sections: Impact, Projects, Collaboration & mentoring, Learning. Each bullet states the outcome \
-                first, then how. Only use facts from the log.
-                """, String(entries.suffix(24_000)), 1_400)
+                You write a performance review self-assessment from a software engineer's work log covering \(period). \
+                Use only facts from the log; never invent metrics, names or outcomes, and leave out anything unclear. \
+                Markdown, in this order: "## Summary" (2–3 sentences on the period's overall contribution), \
+                "## Key achievements" (4–8 bullets, outcome first, then how, keeping ticket numbers and dates like "Mar 4"), \
+                "## Projects" (one line per project or theme), "## Collaboration & leadership" (reviews, mentoring, helping others), \
+                "## Growth" (new skills, tools, domains), "## Next period" (2–4 goals suggested by follow-ups in the log). \
+                Skip a section if the log has nothing for it.\(emphasis)
+                """, entries, 1_800)
         case .explain(let text):
             return ("""
                 You explain code, errors, commands or technical text to a software engineer. Be precise and brief: \

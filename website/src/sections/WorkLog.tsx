@@ -11,7 +11,7 @@ const entries = [
 const jobs = [
   { icon: Sparkle, title: "Summarize Today's Work", body: "A standup-ready paragraph from today's lines." },
   { icon: CalendarBlank, title: "Weekly Work Summary", body: "A status update for the last seven days." },
-  { icon: Medal, title: "Write Brag Document", body: "Review-season highlights from 90 days of logs." },
+  { icon: Medal, title: "Performance Review", body: "Pick last quarter, this year or any dates. Lizard writes your self-review from the log." },
 ];
 
 /** Split: how logging works on the left, the actual Markdown file filling in on the right. */
@@ -23,7 +23,7 @@ export function WorkLog() {
         <div className="min-w-0">
           <h2 className="max-w-[15ch] text-4xl font-semibold leading-[1.05] tracking-[-0.03em] md:text-5xl">Remember what you did this week.</h2>
           <p className="mt-5 max-w-[48ch] text-[17px] leading-relaxed text-muted">
-            Press <span className="kbd">⌥</span> <span className="kbd">⇧</span> <span className="kbd">W</span> anywhere, type one line, hit Return. Lizard stamps the time and the app you were in, tags it on device, and appends it to this month's Markdown file.
+            Press <span className="kbd">⌥</span> <span className="kbd">⇧</span> <span className="kbd">W</span> anywhere, type one line, hit Return. Lizard stamps the time and the app you were in, tags it on device, and files it in this month's Markdown log. Forgot something? One click on Yesterday or Earlier, or <span className="kbd">⌘</span> <span className="kbd">[</span> to step back a day, and it lands in the right place.
           </p>
           <ul className="mt-12 divide-y divide-line border-y border-line">
             {jobs.map(({ icon: Icon, title, body }) => (

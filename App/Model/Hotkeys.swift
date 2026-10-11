@@ -1,9 +1,10 @@
 import AppKit
 import Carbon.HIToolbox
 import KeyboardShortcuts
+import LizardCore
 
-/// Every global shortcut Lizard registers. Defaults follow the plan: ⌃Space toggles the
-/// launcher, ⌥⇧ + letter opens a feature directly. Users re-record them in Setup or Settings.
+/// Every global shortcut Lizard registers. ⌃Space is the fallback launcher shortcut; Setup offers
+/// ⌘Space (see `LauncherShortcut`). ⌥⇧ + letter opens a feature directly. Users re-record them in Setup or Settings.
 extension KeyboardShortcuts.Name {
     static let toggleLauncher = Self("toggleLauncher", default: .init(.space, modifiers: [.control]))
     static let workLog = Self("workLog", default: .init(.w, modifiers: [.option, .shift]))
@@ -47,9 +48,6 @@ enum HotkeyConflicts {
         if shortcut.key == .space, shortcut.modifiers == [.control], enabledKeyboardInputSources() > 1 {
             return "⌃Space also switches keyboard input sources on this Mac. Turn that off in System Settings › Keyboard › Keyboard Shortcuts › Input Sources, or pick another shortcut."
         }
-        if shortcut.key == .space, shortcut.modifiers == [.command] {
-            return "⌘Space opens Spotlight. Turn Spotlight's shortcut off in System Settings › Keyboard › Keyboard Shortcuts › Spotlight first."
-        }
         return nil
     }
 
@@ -61,4 +59,75 @@ enum HotkeyConflicts {
     }
 
     static let keyboardShortcutsSettings = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension?Shortcuts")!
+}
+
+/// The launcher shortcut choice offered in Setup and Settings. ⌘Space is the default offer; it
+/// belongs to Spotlight until Spotlight's shortcut is switched off, which Lizard does (and undoes)
+/// for you.
+enum LauncherShortcut {
+    static let commandSpace = KeyboardShortcuts.Shortcut(.space, modifiers: [.command])
+    static let controlSpace = KeyboardShortcuts.Shortcut(.space, modifiers: [.control])
+    private static let chosenKey = "Lizard.LauncherShortcutChosen"
+
+    /// Whether the person has picked a launcher shortcut (Setup applies ⌘Space when they haven't).
+    static var hasChosen: Bool {
+        get { UserDefaults.standard.bool(forKey: chosenKey) }
+        set { UserDefaults.standard.set(newValue, forKey: chosenKey) }
+    }
+
+    static var current: KeyboardShortcuts.Shortcut? { KeyboardShortcuts.getShortcut(for: .toggleLauncher) }
+
+    /// Same keys, compared by Carbon codes (the stored value can differ in device-dependent flags).
+    static func same(_ a: KeyboardShortcuts.Shortcut?, _ b: KeyboardShortcuts.Shortcut?) -> Bool {
+        guard let a, let b else { return a == nil && b == nil }
+        return a.carbonKeyCode == b.carbonKeyCode && a.carbonModifiers == b.carbonModifiers
+    }
+
+    /// For messages: "⌘Space", or a fallback when none is set.
+    static var display: String { current.map { "\($0)" } ?? "your launcher shortcut" }
+
+    @MainActor
+    static func use(_ shortcut: KeyboardShortcuts.Shortcut?) async {
+        KeyboardShortcuts.setShortcut(shortcut, for: .toggleLauncher)
+        hasChosen = true
+        await SpotlightShortcut.sync(launcher: shortcut)
+    }
+}
+
+/// Spotlight's "Show Spotlight search" (symbolic hotkey 64). Turned off only when the launcher
+/// takes ⌘Space, and turned back on if Lizard was the one that turned it off.
+enum SpotlightShortcut {
+    private static let domain = "com.apple.symbolichotkeys"
+    private static let disabledByLizardKey = "Lizard.SpotlightShortcutDisabled"
+
+    static var isEnabled: Bool {
+        CFPreferencesAppSynchronize(domain as CFString)
+        guard let all = CFPreferencesCopyAppValue("AppleSymbolicHotKeys" as CFString, domain as CFString) as? [String: Any],
+            let entry = all["64"] as? [String: Any]
+        else { return true }  // never customised: on
+        return (entry["enabled"] as? NSNumber)?.boolValue ?? true
+    }
+
+    static func sync(launcher: KeyboardShortcuts.Shortcut?) async {
+        let wantsCommandSpace = LauncherShortcut.same(launcher, LauncherShortcut.commandSpace)
+        if wantsCommandSpace, isEnabled {
+            if await setEnabled(false) { UserDefaults.standard.set(true, forKey: disabledByLizardKey) }
+        } else if !wantsCommandSpace, UserDefaults.standard.bool(forKey: disabledByLizardKey) {
+            if await setEnabled(true) { UserDefaults.standard.removeObject(forKey: disabledByLizardKey) }
+        }
+    }
+
+    /// Writes the setting, then asks the system to reload shortcuts (takes effect without logging out).
+    private static func setEnabled(_ enabled: Bool) async -> Bool {
+        let entry = """
+            <dict><key>enabled</key><\(enabled ? "true" : "false")/><key>value</key><dict><key>parameters</key>\
+            <array><integer>32</integer><integer>49</integer><integer>1048576</integer></array>\
+            <key>type</key><string>standard</string></dict></dict>
+            """
+        guard let write = try? await ProcessRunner.run("/usr/bin/defaults", ["write", "com.apple.symbolichotkeys", "AppleSymbolicHotKeys", "-dict-add", "64", entry], timeout: .seconds(10)),
+            write.succeeded
+        else { return false }
+        _ = try? await ProcessRunner.run("/System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings", ["-u"], timeout: .seconds(10))
+        return true
+    }
 }

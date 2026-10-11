@@ -28,7 +28,7 @@ App/                            SwiftUI + AppKit host; LSUIElement accessory app
     MenuBarCommandController.swift  extension menu-bar command → NSStatusItem + NSMenu, interval refresh
     AppHostServices.swift       native services extensions await (paste, confirm, AI, apps, selected text…)
     SetupModel.swift            first-run pages, Accessibility polling
-    Hotkeys.swift               KeyboardShortcuts names/defaults, conflict warnings (⌃Space, ⌘Space)
+    Hotkeys.swift               KeyboardShortcuts names/defaults, conflict warnings, `LauncherShortcut` (⌘Space offer) + `SpotlightShortcut` (symbolic hotkey 64 on/off)
     Preferences.swift           folders and toggles in UserDefaults
     ResourceMonitor.swift       memory pressure → trim/unload MLX (from Cocoon)
     KnowledgeService.swift      what gets indexed, background sync, search, AskNotesSession (cited answers)
@@ -151,7 +151,7 @@ layer-25 windows with `CGWindowListCopyWindowInfo`; items with `onscreen = false
 7. **Default GitHub integration** = the author's `github-review-requests` from the Raycast store (raycast/extensions
    PR #29775). Lizard presets `authMethod=gh` and `ghPath=<resolved gh>` and enables its `actionablePullRequests`
    menu-bar command (`ExtensionsModel.installGitHubDefault`).
-8. **Default hotkey ⌃Space** (the user's choice). It collides with "Select previous input source" when 2+ keyboard input
+8. **Launcher hotkey: Setup offers ⌘Space** (the user's choice) and turns off Spotlight's symbolic hotkey 64 via `defaults write com.apple.symbolichotkeys` + `activateSettings -u`; it re-enables it only if Lizard disabled it (`Lizard.SpotlightShortcutDisabled`). The KeyboardShortcuts default stays ⌃Space so skipping setup never fights Spotlight. It collides with "Select previous input source" when 2+ keyboard input
    sources are enabled; `HotkeyConflicts` warns. Other defaults: ⌥⇧W work log, ⌥⇧V clipboard, ⌥⇧A AI, ⌥⇧N note.
 9. **Storage:** notes are plain `.md` files in `~/Documents/Notes`; the work log is `~/Documents/WorkLogs/YYYY-MM.md` with
    lines like `- 2026-10-10T14:03:05+02:00 [Xcode] text`; clipboard history is SQLite FTS5; chats are JSON in

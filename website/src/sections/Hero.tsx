@@ -25,7 +25,7 @@ export function Hero() {
             <Mark size={64} />
           </motion.div>
           <motion.p variants={rise} initial={reduce ? false : "hidden"} animate="show" custom={1} className="mb-4 text-[13px] font-medium uppercase tracking-[0.16em] text-accent">
-            Press ⌃ Space
+            Press ⌘ Space
           </motion.p>
           <motion.h1
             variants={rise} initial={reduce ? false : "hidden"} animate="show" custom={2}

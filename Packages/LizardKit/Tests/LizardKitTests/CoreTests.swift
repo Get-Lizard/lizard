@@ -63,6 +63,28 @@ import Testing
         #expect(Int(entries[0].date.timeIntervalSince1970) == 1_760_000_000)
     }
 
+    @Test func workLogBackdatedEntryKeepsTimeOrder() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "worklog-\(UUID())")
+        let store = WorkLogStore(root: root)
+        let morning = Date(timeIntervalSince1970: 1_760_000_000)
+        try store.append(text: "first", app: nil, date: morning)
+        try store.append(text: "third", app: nil, date: morning.addingTimeInterval(7_200))
+        try store.append(text: "second", app: nil, date: morning.addingTimeInterval(3_600))
+        #expect(store.entries(inMonthOf: morning).map(\.text) == ["first", "second", "third"])
+        let raw = try String(contentsOf: store.file(for: morning), encoding: .utf8)
+        #expect(raw.hasPrefix("# Work Log: "))
+        #expect(raw.hasSuffix("third\n"))
+    }
+
+    @Test func workLogTextFitsLongPeriods() {
+        let start = Date(timeIntervalSince1970: 1_760_000_000)
+        let entries = (0..<2_000).map { WorkLogEntry(date: start.addingTimeInterval(Double($0) * 3_600), app: "Xcode", text: "Entry \($0) " + String(repeating: "x", count: 40)) }
+        let text = WorkLogStore.text(of: entries, limit: 20_000)
+        #expect(text.count <= 20_100)
+        #expect(text.contains("Entry 0 "))
+        #expect(text.hasPrefix("(2000 entries"))
+    }
+
     @Test func tokenizerFindsHeadingsCodeAndFences() {
         let text = "# Title\nsome `code` and **bold**\n```swift\nlet x = 1\n```\n- [x] done\n"
         let kinds = MarkdownTokenizer.tokenize(text).map(\.kind)

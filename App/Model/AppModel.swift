@@ -143,6 +143,15 @@ final class AppModel {
             }
         }
         if arguments.contains("--show-clipboard") { Task { try? await Task.sleep(for: .seconds(1.5)); open(.clipboard) } }
+        if arguments.contains("--show-worklog") { Task { try? await Task.sleep(for: .seconds(1.5)); showWorkLog() } }
+        if arguments.contains("--show-review") { Task { try? await Task.sleep(for: .seconds(1.5)); openPerformanceReview() } }
+        if let index = arguments.firstIndex(of: "--show-setup") {
+            Task {
+                try? await Task.sleep(for: .seconds(1.5))
+                if index + 1 < arguments.count, let page = SetupModel.Page.allCases.first(where: { "\($0)" == arguments[index + 1] }) { setup.page = page }
+                showSetup()
+            }
+        }
         if !hasArgFlag {
             showSplash(firstLaunch: firstRun) { [weak self] in
                 if firstRun { self?.showSetup() }
@@ -386,10 +395,8 @@ final class AppModel {
             },
             command("work-today", "Summarize Today's Work", "AI summary of today's work log", "text.badge.star") { [weak self] in self?.summarizeWorkLog(period: .today) },
             command("work-week", "Weekly Work Summary", "AI status update for the last 7 days", "calendar") { [weak self] in self?.summarizeWorkLog(period: .week) },
-            command("brag-doc", "Write Brag Document", "Performance-review highlights from 90 days of work logs", "medal") { [weak self] in
-                guard let self else { return }
-                let entries = self.workLog.entries(from: .now.addingTimeInterval(-90 * 86_400), to: .now)
-                self.launcher.push(.aiJob(.bragDoc(entries: WorkLogStore.text(of: entries))))
+            command("performance-review", "Performance Review", "Pick a period; AI writes a self-review from your work log", "medal") { [weak self] in
+                self?.launcher.push(.performanceReview)
             },
             command("summarize-clipboard", "Summarize Clipboard", "AI summary of what you copied", "text.append") { [weak self] in
                 self?.launcher.push(.aiJob(.summarize(text: NSPasteboard.general.string(forType: .string) ?? "")))
@@ -531,7 +538,7 @@ final class AppModel {
         rememberFrontApp()
         workLogContextApp = previousApp?.localizedName
         if workLogPanel == nil {
-            workLogPanel = FloatingPanelController(size: NSSize(width: 520, height: 150)) {
+            workLogPanel = FloatingPanelController(size: NSSize(width: 560, height: 152)) {
                 AnyView(WorkLogHUD().environment(self))
             }
         }
@@ -543,14 +550,22 @@ final class AppModel {
         previousApp?.activate()
     }
 
-    func appendWorkLog(_ text: String) {
-        let app = workLogContextApp
+    /// `date` nil means now; a back-dated entry isn't tagged with the app you're in today.
+    func appendWorkLog(_ text: String, date: Date? = nil) {
+        let app = date == nil ? workLogContextApp : nil
         do {
-            try workLog.append(text: text, app: app)
+            try workLog.append(text: text, app: app, date: date ?? .now)
             knowledge.scheduleSync()
         } catch {
             showHUD("Couldn't save: \(error.localizedDescription)")
         }
+    }
+
+    /// From the Work Log HUD: open the launcher on the review screen.
+    func openPerformanceReview() {
+        workLogPanel?.hide()
+        if !isLauncherVisible { showLauncher() }
+        launcher.push(.performanceReview)
     }
 
     func todayWorkLogText() -> String {
