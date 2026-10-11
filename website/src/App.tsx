@@ -2,6 +2,10 @@ import { Nav } from "./sections/Nav";
 import { Hero } from "./sections/Hero";
 import { AIPan } from "./sections/AIPan";
 import { Bento } from "./sections/Bento";
+import { LocalModels } from "./sections/LocalModels";
+import { WorkLog } from "./sections/WorkLog";
+import { GitHub } from "./sections/GitHub";
+import { Travel } from "./sections/Travel";
 import { Privacy } from "./sections/Privacy";
 import { Extensions } from "./sections/Extensions";
 import { Shortcuts } from "./sections/Shortcuts";
@@ -14,9 +18,13 @@ export function App() {
       <main>
         <Hero />
         <AIPan />
+        <LocalModels />
         <Bento />
+        <WorkLog />
+        <GitHub />
         <Privacy />
         <Extensions />
+        <Travel />
         <Shortcuts />
         <Closing />
       </main>

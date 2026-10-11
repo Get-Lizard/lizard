@@ -13,8 +13,8 @@ const logos = [
 /** Split: the pitch and real commands on the left, a logo marquee (the page's only one) on the right. */
 export function Extensions() {
   return (
-    <section id="extensions" className="mx-auto grid max-w-[1240px] gap-14 px-4 py-28 md:px-8 md:py-36 lg:grid-cols-[1fr_1fr] lg:items-center">
-      <div>
+    <section id="extensions" className="mx-auto grid max-w-[1240px] grid-cols-1 gap-14 px-4 py-28 md:px-8 md:py-36 lg:grid-cols-[1fr_1fr] lg:items-center">
+      <div className="min-w-0">
         <h2 className="max-w-[16ch] text-4xl font-semibold leading-[1.05] tracking-[-0.03em] md:text-5xl">Extensions without a gatekeeper.</h2>
         <p className="mt-5 max-w-[50ch] text-[17px] leading-relaxed text-muted">
           Paste any GitHub repo link. Lizard runs Raycast extensions, checks for updates, and labels third-party code as External.
@@ -24,7 +24,7 @@ export function Extensions() {
         </pre>
       </div>
 
-      <div className="relative overflow-hidden rounded-[22px] border border-line bg-raised py-16 [mask-image:linear-gradient(90deg,transparent,black_12%,black_88%,transparent)]">
+      <div className="relative min-w-0 overflow-hidden rounded-[22px] border border-line bg-raised py-16 [mask-image:linear-gradient(90deg,transparent,black_12%,black_88%,transparent)]">
         <div className="marquee-track flex w-max gap-14 px-7">
           {[...logos, ...logos].map((logo, i) => (
             <img
@@ -40,7 +40,7 @@ export function Extensions() {
           ))}
         </div>
         <p className="mt-12 px-8 text-[15px] leading-relaxed text-muted">
-          Coming from Raycast? Setup imports the extensions you already have. Built-in ones cover Translate, Slack, 1Password, Apple Notes, Reminders, Warp and more.
+          Built-in extensions cover Translate, Slack, 1Password, Apple Notes, Reminders, Warp and more.
         </p>
       </div>
     </section>
