@@ -3,7 +3,7 @@
 ## Context
 The original blueprint describes a Raycast-style launcher (NSPanel shell, app search, quicklinks, markdown notes, work log, clipboard history, local LLM, Raycast extension host). Its tech choices were generic (llama.cpp/Ollama, Llama 3.2/Qwen 2.5, SwiftData, MPS). This revision rebases the plan on the stack, conventions and AI architecture already proven in `~/projects/magicbuilder` (Cocoon), so we reuse code instead of reinventing it, and adds: animated splash, first-run setup with hotkey recording, and a minimalist animated lizard logo.
 
-Working dir: `/Users/vitoraguila/projects/lizard` (empty, greenfield).
+Started as an empty, greenfield repo.
 
 ---
 
