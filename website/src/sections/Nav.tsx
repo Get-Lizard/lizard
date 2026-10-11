@@ -10,6 +10,7 @@ export function Nav() {
         <a href="#top" className="flex items-center gap-2.5 text-[19px] font-semibold tracking-tight">
           <Mark size={26} animate={false} />
           lizard
+          <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[11.5px] font-medium tracking-normal text-accent">macOS 26</span>
         </a>
         <div className="hidden items-center gap-7 text-[14px] text-muted lg:flex">
           <a className="transition-colors hover:text-ink" href="#ai">Private AI</a>

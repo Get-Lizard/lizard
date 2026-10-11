@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Copy, TerminalWindow } from "@phosphor-icons/react";
+import { AppleLogo, Check, Copy, TerminalWindow } from "@phosphor-icons/react";
 
 export const BREW = "brew install --cask get-lizard/tap/lizard";
 
@@ -24,5 +24,17 @@ export function InstallCommand({ large = false }: { large?: boolean }) {
         {copied ? "Copied" : "Copy"}
       </span>
     </button>
+  );
+}
+
+/** What Lizard needs, shown right under every install command so nobody installs it by mistake. */
+export function Requirements({ center = false }: { center?: boolean }) {
+  return (
+    <p className={`inline-flex max-w-full items-start gap-2 rounded-2xl border border-accent/30 bg-accent/10 px-4 py-2 text-left text-[13.5px] leading-snug text-ink sm:items-center sm:rounded-full ${center ? "justify-center" : ""}`}>
+      <AppleLogo size={16} weight="fill" className="mt-px shrink-0 text-accent sm:mt-0" />
+      <span>
+        Requires <strong className="font-semibold">macOS 26 Tahoe</strong> on <strong className="font-semibold">Apple silicon</strong> (M1 or later)
+      </span>
+    </p>
   );
 }

@@ -1,5 +1,5 @@
 import { GithubLogo } from "@phosphor-icons/react";
-import { InstallCommand } from "../Install";
+import { InstallCommand, Requirements } from "../Install";
 import { Mark } from "../Mark";
 import { REPO } from "./Nav";
 
@@ -11,9 +11,13 @@ export function Closing() {
       <div className="relative mx-auto flex max-w-[1240px] flex-col items-center px-4 py-32 text-center md:px-8 md:py-44">
         <Mark size={96} />
         <h2 className="mt-8 text-5xl font-semibold tracking-[-0.035em] md:text-7xl">Get Lizard.</h2>
-        <p className="mt-5 max-w-[42ch] text-[17px] leading-relaxed text-muted">Free and open source. For macOS 26 on Apple Silicon, signed and notarized.</p>
-        <div className="mt-10">
+        <p className="mt-5 max-w-[42ch] text-[17px] leading-relaxed text-muted">Free and open source, signed and notarized by Apple.</p>
+        <div className="mt-10 flex flex-col items-center gap-4">
           <InstallCommand large />
+          <Requirements center />
+          <a href={`${REPO}/releases/latest`} className="text-[14px] text-muted underline decoration-line-strong underline-offset-4 hover:text-ink">
+            Or download the DMG
+          </a>
         </div>
       </div>
       <footer className="mx-auto flex max-w-[1240px] flex-col gap-4 border-t border-line px-4 py-10 text-[14px] text-faint md:flex-row md:items-center md:justify-between md:px-8">

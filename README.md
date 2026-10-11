@@ -61,6 +61,8 @@
 
 ## Install
 
+> **Requires macOS 26 Tahoe on an Apple silicon Mac (M1 or later).** Homebrew won't install it on older systems.
+
 ```sh
 brew install --cask get-lizard/tap/lizard
 brew install node        # for extensions

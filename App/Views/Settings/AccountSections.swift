@@ -9,10 +9,7 @@ struct AISetupSection: View {
     var body: some View {
         @Bindable var ai = app.ai
         VStack(alignment: .leading, spacing: 12) {
-            engineRow(
-                symbol: "apple.intelligence", title: "Apple Intelligence",
-                detail: ai.appleAvailable ? "Ready. Instant, nothing to download." : (AppleIntelligence.unavailableReason ?? "Unavailable"),
-                ok: ai.appleAvailable)
+            AppleIntelligenceRow()
 
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
@@ -30,6 +27,10 @@ struct AISetupSection: View {
                 if let model = ai.localModel {
                     let fit = ModelCatalog.fit(model, budgetBytes: HardwareProfile.current.gpuBudgetBytes)
                     Text("\(model.blurb) \(fit.label).").font(.callout).foregroundStyle(.secondary)
+                }
+                if AppleIntelligence.status == .unsupported, !ai.isLocalModelDownloaded {
+                    Label("Recommended for this Mac: free and private, like Apple Intelligence. Download it once.", systemImage: "star.fill")
+                        .font(.callout).foregroundStyle(Brand.moss)
                 }
                 downloadRow
             }
@@ -83,20 +84,55 @@ struct AISetupSection: View {
             }
         }
     }
+}
 
-    private func engineRow(symbol: String, title: String, detail: String, ok: Bool) -> some View {
+/// Apple Intelligence with what to do when it's off: open the right System Settings pane, wait for
+/// the download, or point at the local model. Re-checks every few seconds while visible, so fixing
+/// it in System Settings shows up here without restarting.
+struct AppleIntelligenceRow: View {
+    @State private var status = AppleIntelligence.status
+
+    var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: symbol).foregroundStyle(Brand.moss).frame(width: 24)
+            Image(systemName: "apple.intelligence").foregroundStyle(Brand.moss).frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.headline)
-                Text(detail).font(.callout).foregroundStyle(.secondary)
+                Text("Apple Intelligence").font(.headline)
+                Text(detail).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
-            Image(systemName: ok ? "checkmark.circle.fill" : "minus.circle").foregroundStyle(ok ? Brand.moss : .secondary)
+            switch status {
+            case .ready:
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(Brand.moss)
+            case .turnedOff:
+                Button("Turn On…") { NSWorkspace.shared.open(Self.settingsPane) }
+                    .buttonStyle(.borderedProminent).tint(Brand.moss)
+            case .downloading:
+                ProgressView().controlSize(.small)
+            case .unsupported:
+                Image(systemName: "minus.circle").foregroundStyle(.secondary)
+            }
         }
         .padding(12)
         .surface()
+        .task {
+            while !Task.isCancelled, status != .ready {
+                try? await Task.sleep(for: .seconds(3))
+                let latest = AppleIntelligence.status
+                if latest != status { withAnimation(.smooth) { status = latest } }
+            }
+        }
     }
+
+    private var detail: String {
+        switch status {
+        case .ready: "Ready. Free, private and instant: Apple's model runs on this Mac, nothing to download."
+        case .turnedOff: "Free and built into macOS, but switched off. Turn it on in System Settings › Apple Intelligence & Siri; Lizard notices right away."
+        case .downloading: "Switched on. macOS is downloading Apple's model; Lizard starts using it as soon as it's ready."
+        case .unsupported: "Not available on this Mac (it needs Apple Intelligence support for your Mac, region and language). Use the free local model below instead."
+        }
+    }
+
+    static let settingsPane = URL(string: "x-apple.systempreferences:com.apple.Siri-Settings.extension")!
 }
 
 /// Browser sign-ins for cloud AI (Cocoon's flows): OpenRouter OAuth and OpenCode Zen.

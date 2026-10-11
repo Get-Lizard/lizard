@@ -25,6 +25,26 @@ public enum AppleIntelligence {
         }
     }
 
+    /// What setup should offer when Apple Intelligence can't be used.
+    public enum Status: Sendable, Equatable {
+        case ready
+        /// Supported but switched off: a click in System Settings fixes it.
+        case turnedOff
+        /// Switched on; macOS is still downloading the model (Lizard switches over when it's done).
+        case downloading
+        /// This Mac (or its region/language) can't run it: use the local model or cloud instead.
+        case unsupported
+    }
+
+    public static var status: Status {
+        switch SystemLanguageModel.default.availability {
+        case .available: .ready
+        case .unavailable(.appleIntelligenceNotEnabled): .turnedOff
+        case .unavailable(.modelNotReady): .downloading
+        case .unavailable: .unsupported
+        }
+    }
+
     // MARK: Launcher intent triage
 
     @Generable

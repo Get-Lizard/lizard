@@ -1,6 +1,6 @@
 import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 import { useRef } from "react";
-import { InstallCommand } from "../Install";
+import { InstallCommand, Requirements } from "../Install";
 import { Mark } from "../Mark";
 
 const rise = {
@@ -40,6 +40,7 @@ export function Hero() {
           </motion.p>
           <motion.div variants={rise} initial={reduce ? false : "hidden"} animate="show" custom={4} className="mt-9 flex flex-col items-start gap-4">
             <InstallCommand large />
+            <Requirements />
             <a href="#ai" className="text-[14px] font-medium text-muted underline decoration-line-strong underline-offset-4 transition-colors hover:text-ink">
               See what it does
             </a>
