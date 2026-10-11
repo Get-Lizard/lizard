@@ -25,6 +25,36 @@ public enum Calculator {
         return Result(value: value, display: format(value), copyText: plain(value))
     }
 
+    /// What kind of calculation `input` is, for the result card ("Sum", "Conversion"…).
+    public static func kind(of input: String) -> String {
+        let text = input.lowercased()
+        if convertUnits(text.trimmingCharacters(in: .whitespaces)) != nil { return "Conversion" }
+        if text.contains("%") || text.contains(" of ") { return "Percentage" }
+        if functions.keys.contains(where: { text.contains($0 + "(") }) { return "Function" }
+        // Operators, ignoring a leading minus sign on a number.
+        let body = text.drop { $0 == " " || $0 == "-" }
+        let operators = Set(body.filter { "+-*/^×÷".contains($0) }.map { $0 == "×" ? "*" : $0 == "÷" ? "/" : $0 })
+        switch operators {
+        case ["+"]: return "Sum"
+        case ["-"]: return "Difference"
+        case ["*"]: return "Product"
+        case ["/"]: return "Quotient"
+        case ["^"]: return "Power"
+        default: return "Expression"
+        }
+    }
+
+    /// The result spelled out ("Two", "Forty-two point five"), for numbers people say aloud.
+    public static func words(_ value: Double, locale: Locale = .current) -> String? {
+        guard value.isFinite, abs(value) < 1e12 else { return nil }
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .spellOut
+        formatter.locale = locale
+        formatter.maximumFractionDigits = 3
+        guard let text = formatter.string(from: NSNumber(value: value)), text.count <= 60 else { return nil }
+        return text.prefix(1).uppercased() + text.dropFirst()
+    }
+
     static func format(_ value: Double) -> String {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal

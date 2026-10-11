@@ -1,4 +1,5 @@
 import AppKit
+import Search
 import SwiftUI
 
 /// One row in the launcher. Every source (apps, commands, quicklinks, extensions, AI) maps
@@ -34,6 +35,17 @@ struct LauncherItem: Identifiable {
     var perform: @MainActor () -> Bool
     /// Secondary actions for the ⌘K menu.
     var actions: [LauncherAction] = []
+    /// Shown as the big calculator card instead of a row.
+    var calculation: Calculation?
+    /// Shown as a live translation card (translated on device as you type).
+    var translation: TranslationQuery?
+
+    struct Calculation {
+        let expression: String
+        let kind: String
+        let result: String
+        let words: String?
+    }
 
     init(
         id: String, title: String, subtitle: String? = nil, icon: Icon, kind: Kind, accessory: String? = nil,

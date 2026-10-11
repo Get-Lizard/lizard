@@ -609,3 +609,38 @@ enum ProcessRunnerHelper {
         #expect(links.first?.openWith == nil)
     }
 }
+
+@Suite struct CalculatorCardTests {
+    @Test(arguments: [("1+1", "Sum"), ("10 - 3", "Difference"), ("-5 + 2", "Sum"), ("6*7", "Product"), ("9/3", "Quotient"),
+                      ("2^8", "Power"), ("15% of 80", "Percentage"), ("sqrt(16)", "Function"), ("5 km in mi", "Conversion"), ("1+2*3", "Expression")])
+    func namesTheKindOfCalculation(input: String, kind: String) {
+        #expect(Calculator.kind(of: input) == kind)
+    }
+
+    @Test func spellsOutResults() {
+        let english = Locale(identifier: "en_US")
+        #expect(Calculator.words(2, locale: english) == "Two")
+        #expect(Calculator.words(42.5, locale: english) == "Forty-two point five")
+        #expect(Calculator.words(1e15, locale: english) == nil)
+    }
+}
+
+@Suite struct TranslationQueryTests {
+    private let en = Locale(identifier: "en_US")
+
+    @Test func recognisesRequests() {
+        #expect(TranslationQuery.parse("good morning in spanish", locale: en) == TranslationQuery(text: "good morning", target: "es"))
+        #expect(TranslationQuery.parse("hello to Japanese", locale: en) == TranslationQuery(text: "hello", target: "ja"))
+        #expect(TranslationQuery.parse("obrigado em inglês", locale: en) == TranslationQuery(text: "obrigado", target: "en"))
+        #expect(TranslationQuery.parse("tr thank you", locale: en) == TranslationQuery(text: "thank you", target: nil))
+        #expect(TranslationQuery.parse("translate see you soon to french", locale: en) == TranslationQuery(text: "see you soon", target: "fr"))
+        #expect(TranslationQuery.parse("where is it in Deutsch", locale: en)?.target == "de")
+    }
+
+    @Test func leavesOrdinarySearchesAlone() {
+        #expect(TranslationQuery.parse("5 km in mi", locale: en) == nil)
+        #expect(TranslationQuery.parse("notes in work", locale: en) == nil)
+        #expect(TranslationQuery.parse("open in vs code", locale: en) == nil)
+        #expect(TranslationQuery.parse("tr", locale: en) == nil)
+    }
+}

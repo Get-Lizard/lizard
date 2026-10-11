@@ -45,6 +45,26 @@ public enum AppleIntelligence {
         }
     }
 
+    // MARK: Translation
+
+    /// Translates with Apple's on-device model (used when Apple Translation's language pack isn't
+    /// downloaded). nil when unavailable or the model can't do that language.
+    public static func translate(_ text: String, to language: String) async -> String? {
+        guard isAvailable else { return nil }
+        let session = LanguageModelSession(instructions: """
+            You are a translator. Translate the user's text into \(language). Keep the meaning, tone and \
+            formatting. Reply with the translation only: no quotes, notes or explanations.
+            """)
+        do {
+            let answer = try await session.respond(to: text, options: GenerationOptions(temperature: 0.2)).content
+            let trimmed = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        } catch {
+            lastError = "\(error)"
+            return nil
+        }
+    }
+
     // MARK: Launcher intent triage
 
     @Generable

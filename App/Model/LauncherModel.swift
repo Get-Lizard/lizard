@@ -47,6 +47,8 @@ final class LauncherModel {
     private(set) var sections: [Section] = []
     /// Semantic matches for the current query (filled in asynchronously).
     private(set) var semanticItems: [LauncherItem] = []
+    /// The live translation card's latest output (↩ copies it).
+    var translationResult: String?
     @ObservationIgnored private var semanticTask: Task<Void, Never>?
     private(set) var selectedID: String?
     private(set) var stack: [Route] = []
@@ -162,13 +164,37 @@ final class LauncherModel {
             if !extensionCommands.isEmpty { sections.append(Section(title: "Extensions", items: extensionCommands)) }
         } else {
             if let result = Calculator.evaluate(query) {
-                sections.append(Section(title: "Calculator", items: [
-                    LauncherItem(id: "calculator", title: "= \(result.display)", subtitle: query, icon: .symbol("equal.square.fill", .orange), kind: .command,
-                        actions: [LauncherAction(title: "Paste Result", symbol: "doc.on.clipboard") { [weak app] in app?.pasteText(result.copyText); return false }]) { [weak app] in
-                        app?.copyText(result.copyText)
-                        return false
-                    },
-                ]))
+                var item = LauncherItem(id: "calculator", title: "= \(result.display)", subtitle: query, icon: .symbol("equal.square.fill", .orange), kind: .command,
+                    actions: [LauncherAction(title: "Paste Result", symbol: "doc.on.clipboard") { [weak app] in app?.pasteText(result.copyText); return false }]) { [weak app] in
+                    app?.copyText(result.copyText)
+                    return false
+                }
+                item.calculation = .init(expression: query.trimmingCharacters(in: .whitespaces), kind: Calculator.kind(of: query),
+                                         result: result.display, words: Calculator.words(result.value))
+                sections.append(Section(title: "Calculator", items: [item]))
+            }
+            if let request = TranslationQuery.parse(query) {
+                var item = LauncherItem(id: "translation", title: "Translate “\(request.text)”", subtitle: nil, icon: .symbol("character.bubble", .blue), kind: .command,
+                    actions: [
+                        LauncherAction(title: "Paste Translation", symbol: "doc.on.clipboard") { [weak self] in
+                            if let text = self?.translationResult { self?.app?.pasteText(text) }
+                            return false
+                        },
+                        LauncherAction(title: "Open in Translate", symbol: "character.bubble") { [weak self] in
+                            self?.push(.translate(request.text))
+                            return true
+                        },
+                    ]) { [weak self] in
+                    guard let text = self?.translationResult else {
+                        self?.push(.translate(request.text))
+                        return true
+                    }
+                    self?.app?.copyText(text)
+                    self?.app?.showHUD("Translation copied")
+                    return false
+                }
+                item.translation = request
+                sections.append(Section(title: "Translate", items: [item]))
             }
             if !ranked.isEmpty { sections.append(Section(title: "Results", items: Array(ranked.prefix(30)))) }
             if !semanticItems.isEmpty { sections.append(Section(title: "From your notes", items: semanticItems)) }

@@ -99,7 +99,15 @@ struct SearchView: View {
                         ForEach(launcher.sections, id: \.title) { section in
                             SectionLabel(title: section.title)
                             ForEach(section.items) { item in
-                                ResultRow(item: item, selected: launcher.selectedID == item.id, namespace: selection)
+                                Group {
+                                    if let calculation = item.calculation {
+                                        CalculatorCard(calculation: calculation, selected: launcher.selectedID == item.id)
+                                    } else if let translation = item.translation {
+                                        TranslationCard(request: translation, selected: launcher.selectedID == item.id) { launcher.translationResult = $0 }
+                                    } else {
+                                        ResultRow(item: item, selected: launcher.selectedID == item.id, namespace: selection)
+                                    }
+                                }
                                     .id(item.id)
                                     .onTapGesture { launcher.select(item.id); launcher.performSelected() }
                             }
@@ -269,5 +277,59 @@ struct ActionsMenu: View {
         }
         .padding(6)
         .frame(minWidth: 240)
+    }
+}
+
+/// The calculator result as a card: what you typed and its kind on the left, the answer and how
+/// it's said on the right. ↩ copies the result.
+struct CalculatorCard: View {
+    let calculation: LauncherItem.Calculation
+    let selected: Bool
+
+    var body: some View {
+        HStack(spacing: 0) {
+            side(calculation.expression, caption: calculation.kind)
+            VStack(spacing: 10) {
+                Rectangle().fill(Color.primary.opacity(0.1)).frame(width: 1)
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(Brand.moss)
+                Rectangle().fill(Color.primary.opacity(0.1)).frame(width: 1)
+            }
+            .frame(width: 44)
+            side(calculation.result, caption: calculation.words, emphasized: true)
+        }
+        .frame(height: 132)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(selected ? Brand.moss.opacity(0.10) : Color.primary.opacity(0.05)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(selected ? Brand.moss.opacity(0.55) : Color.primary.opacity(0.08)))
+        .padding(.horizontal, 4)
+        .padding(.vertical, 2)
+        .contentShape(Rectangle())
+    }
+
+    private func side(_ text: String, caption: String?, emphasized: Bool = false) -> some View {
+        VStack(spacing: 12) {
+            Text(text)
+                .font(.system(size: 30, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(emphasized ? AnyShapeStyle(Brand.gradient) : AnyShapeStyle(.primary))
+                .lineLimit(1)
+                .minimumScaleFactor(0.4)
+                .contentTransition(.numericText())
+                .textSelection(.enabled)
+            if let caption {
+                Text(caption)
+                    .font(.callout.weight(.medium))
+                    .padding(.horizontal, 10).padding(.vertical, 4)
+                    .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .lineLimit(1)
+            }
+        }
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity)
     }
 }
