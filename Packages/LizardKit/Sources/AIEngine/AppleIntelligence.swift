@@ -1,5 +1,6 @@
 import Foundation
 import FoundationModels
+import Synchronization
 
 /// Apple's on-device model (Foundation Models, macOS 26): nothing to download, instant, and
 /// **guided generation** (`@Generable`) so answers always match a Swift type.
@@ -126,8 +127,14 @@ public enum AppleIntelligence {
         return try? await session.respond(to: prompt, generating: NoteOrganization.self, options: GenerationOptions(temperature: 0)).content
     }
 
-    /// The last failure, for diagnostics (`lizardcli apple-ai`).
-    nonisolated(unsafe) public static var lastError: String?
+    /// The last failure, for diagnostics (`lizardcli apple-ai`). Lock-protected: generation
+    /// runs on arbitrary executors, so a plain static var would be a data race.
+    public static var lastError: String? {
+        get { lastErrorStorage.withLock { $0 } }
+        set { lastErrorStorage.withLock { $0 = newValue } }
+    }
+
+    private static let lastErrorStorage = Mutex<String?>(nil)
 
     /// Loads the model ahead of time so the first answer is instant (call when the panel opens).
     public static func prewarm() {

@@ -94,9 +94,8 @@ public actor ScreenshotLibrary {
     /// Files a captured image: moves it into place and records it.
     @discardableResult
     public func add(captured file: URL, date: Date, app: String?, bundleID: String?, label: ScreenshotLabel, text: String, size: CGSize) throws -> Screenshot {
-        let target = destination(for: label.category, title: label.title, date: date)
+        let target = Self.unique(destination(for: label.category, title: label.title, date: date))
         try FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? FileManager.default.removeItem(at: target)
         try FileManager.default.moveItem(at: file, to: target)
         let item = Screenshot(
             id: UUID(), path: target.path, date: date, app: app, appBundleID: bundleID, category: label.category, title: label.title,
@@ -106,12 +105,25 @@ public actor ScreenshotLibrary {
         return item
     }
 
+    /// `url`, or `<name> 2.png`, `<name> 3.png`… when a file is already there. Two captures in the
+    /// same second with the same title used to overwrite each other (and orphan the first entry).
+    static func unique(_ url: URL) -> URL {
+        var candidate = url
+        var counter = 2
+        while FileManager.default.fileExists(atPath: candidate.path) {
+            candidate = url.deletingLastPathComponent().appending(path: "\(url.deletingPathExtension().lastPathComponent) \(counter).\(url.pathExtension)")
+            counter += 1
+        }
+        return candidate
+    }
+
     /// Re-files a screenshot under another category (moves the file).
     @discardableResult
     public func recategorize(_ id: UUID, to category: ScreenshotCategory) throws -> Screenshot? {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return nil }
         var item = items[index]
-        let target = destination(for: category, title: item.title, date: item.date)
+        guard item.category != category else { return item }
+        let target = Self.unique(destination(for: category, title: item.title, date: item.date))
         try FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
         try FileManager.default.moveItem(at: item.url, to: target)
         item.category = category

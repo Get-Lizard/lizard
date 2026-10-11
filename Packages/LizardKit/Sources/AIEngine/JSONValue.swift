@@ -55,9 +55,11 @@ public enum JSONValue: Sendable, Hashable, Codable {
         return nil
     }
 
+    /// The number truncated to an `Int`; nil for non-numbers and values an `Int` can't hold
+    /// (NaN, infinity, beyond ±2^63), which would otherwise trap.
     public var intValue: Int? {
-        if case .number(let value) = self { return Int(value) }
-        return nil
+        guard case .number(let value) = self, value.isFinite else { return nil }
+        return Int(exactly: value.rounded(.towardZero))
     }
 
     public var boolValue: Bool? {

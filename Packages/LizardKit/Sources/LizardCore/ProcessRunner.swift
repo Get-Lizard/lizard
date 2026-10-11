@@ -112,10 +112,12 @@ public enum ProcessRunner {
 
         let commandLine = ([executable] + arguments).joined(separator: " ")
         let timedOut = TimeoutFlag()
+        let watchdog = WatchdogBox()
 
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<CommandResult, Error>) in
                 process.terminationHandler = { finished in
+                    watchdog.cancel()
                     pipe.fileHandleForReading.readabilityHandler = nil
                     collector.append(pipe.fileHandleForReading.readDataToEndOfFile())
                     let output = collector.finish()
@@ -133,13 +135,14 @@ public enum ProcessRunner {
                     return
                 }
                 if let timeout {
-                    Task {
+                    // Cancelled when the process exits, so a 10-minute timeout doesn't leave a
+                    // sleeping task (holding the Process) behind every quick command.
+                    watchdog.set(Task {
                         try? await Task.sleep(for: timeout)
-                        if process.isRunning {
-                            timedOut.value = true
-                            process.terminate()
-                        }
-                    }
+                        guard !Task.isCancelled, process.isRunning else { return }
+                        timedOut.value = true
+                        process.terminate()
+                    })
                 }
             }
         } onCancel: {
@@ -211,6 +214,29 @@ public enum ProcessRunner {
         if let cwd { process.currentDirectoryURL = cwd }
         process.environment = ToolEnvironment.shared.environment(merging: environment)
         return process
+    }
+}
+
+/// Holds the timeout task so the termination handler can cancel it (either may run first).
+private final class WatchdogBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var task: Task<Void, Never>?
+    private var cancelled = false
+
+    func set(_ task: Task<Void, Never>) {
+        let cancelNow = lock.withLock { () -> Bool in
+            self.task = task
+            return cancelled
+        }
+        if cancelNow { task.cancel() }
+    }
+
+    func cancel() {
+        let task = lock.withLock { () -> Task<Void, Never>? in
+            cancelled = true
+            return self.task
+        }
+        task?.cancel()
     }
 }
 

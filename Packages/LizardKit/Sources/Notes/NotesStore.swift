@@ -50,7 +50,8 @@ public actor NotesStore {
     public func folder(of url: URL) -> String {
         let parent = url.deletingLastPathComponent().standardizedFileURL.path
         let base = root.standardizedFileURL.path
-        guard parent.hasPrefix(base) else { return "" }
+        // Compare whole path components: "/x/Notes" must not claim "/x/NotesArchive/a.md".
+        guard parent == base || parent.hasPrefix(base.hasSuffix("/") ? base : base + "/") else { return "" }
         return String(parent.dropFirst(base.count)).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
 

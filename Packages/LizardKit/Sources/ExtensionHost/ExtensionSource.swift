@@ -122,9 +122,13 @@ public struct GitHubLocation: Sendable, Hashable, Codable {
         if let at = text.lastIndex(of: "@") {
             ref = String(text[text.index(after: at)...])
             text = String(text[..<at])
+            // "owner/repo@" (nothing after @) or a ref with characters git refs can't hold.
+            guard let ref, ref.range(of: #"^[A-Za-z0-9._/-]+$"#, options: .regularExpression) != nil, !ref.contains("..") else { return nil }
         }
         let parts = text.split(separator: "/").map(String.init)
-        let valid = { (part: String) in part.range(of: #"^[A-Za-z0-9._-]+$"#, options: .regularExpression) != nil }
+        // "." / ".." would let a pasted location walk out of the repo folder (and out of the
+        // Raycast catalog for bare names).
+        let valid = { (part: String) in part != "." && part != ".." && part.range(of: #"^[A-Za-z0-9._-]+$"#, options: .regularExpression) != nil }
         guard parts.allSatisfy(valid) else { return nil }
         switch parts.count {
         case 0: return nil

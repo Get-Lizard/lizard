@@ -38,22 +38,46 @@ public struct NoteMetadata: Sendable, Hashable {
         return nil
     }
 
+    /// Splits `---` front matter from the body. The closing delimiter must be a line of its own
+    /// (so `----` or `---text` don't end it), and an empty block (`---\n---`) is recognised.
+    static func frontMatter(of text: String) -> (header: [String], body: String)? {
+        guard text.hasPrefix("---\n") else { return nil }
+        var lines = text.components(separatedBy: "\n")
+        lines.removeFirst()
+        guard let close = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "---" }) else { return nil }
+        let body = lines[(close + 1)...].joined(separator: "\n").trimmingCharacters(in: .newlines)
+        return (Array(lines[..<close]), body)
+    }
+
+    private static func cleanTag(_ raw: some StringProtocol) -> String {
+        raw.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "\"'#")).lowercased()
+    }
+
     public static func parse(_ text: String) -> NoteMetadata {
         var metadata = NoteMetadata()
         var body = text
-        if text.hasPrefix("---\n"), let end = text.range(of: "\n---", range: text.index(text.startIndex, offsetBy: 4)..<text.endIndex) {
-            let header = text[text.index(text.startIndex, offsetBy: 4)..<end.lowerBound]
-            body = String(text[end.upperBound...]).trimmingCharacters(in: .newlines)
-            for line in header.split(separator: "\n") {
+        if let front = frontMatter(of: text) {
+            body = front.body
+            // The key whose YAML block list (`tags:` then `  - a`) is being read, if any.
+            var listKey: String?
+            for line in front.header {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if trimmed.hasPrefix("- "), listKey == "tags" {
+                    let tag = cleanTag(trimmed.dropFirst(2))
+                    if !tag.isEmpty { metadata.tags.append(tag) }
+                    continue
+                }
+                listKey = nil
                 let parts = line.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
-                guard parts.count == 2 else { continue }
-                switch parts[0].lowercased() {
+                guard let key = parts.first?.lowercased() else { continue }
+                let value = parts.count == 2 ? parts[1] : ""
+                switch key {
                 case "tags":
-                    metadata.tags += parts[1].trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
-                        .split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "\"'#")).lowercased() }
-                        .filter { !$0.isEmpty }
+                    if value.isEmpty { listKey = "tags"; continue }
+                    metadata.tags += value.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+                        .split(separator: ",").map(cleanTag).filter { !$0.isEmpty }
                 case "pinned":
-                    metadata.pinned = ["true", "yes", "1"].contains(parts[1].lowercased())
+                    metadata.pinned = ["true", "yes", "1"].contains(value.lowercased())
                 default:
                     break
                 }
@@ -114,12 +138,21 @@ public struct NoteMetadata: Sendable, Hashable {
     public static func updating(_ text: String, tags: [String]? = nil, pinned: Bool? = nil) -> String {
         var header: [String] = []
         var body = text
-        if text.hasPrefix("---\n"), let end = text.range(of: "\n---", range: text.index(text.startIndex, offsetBy: 4)..<text.endIndex) {
-            header = text[text.index(text.startIndex, offsetBy: 4)..<end.lowerBound].split(separator: "\n").map(String.init)
-            body = String(text[end.upperBound...]).trimmingCharacters(in: .newlines)
+        if let front = frontMatter(of: text) {
+            header = front.header.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            body = front.body
         }
         func set(_ key: String, _ value: String?) {
-            header.removeAll { $0.lowercased().hasPrefix(key + ":") }
+            // Drop `key: …` and, for the YAML list form, the indented `- item` lines under it.
+            var kept: [String] = []
+            var dropping = false
+            for line in header {
+                if line.lowercased().hasPrefix(key + ":") { dropping = true; continue }
+                if dropping, line.trimmingCharacters(in: .whitespaces).hasPrefix("- ") { continue }
+                dropping = false
+                kept.append(line)
+            }
+            header = kept
             if let value { header.append("\(key): \(value)") }
         }
         if let tags {

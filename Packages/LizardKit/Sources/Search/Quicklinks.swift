@@ -45,10 +45,22 @@ public struct Quicklink: Codable, Sendable, Hashable, Identifiable {
             allowed.remove(charactersIn: "&+=?#")
             return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
         }
-        var text = template
-        text = text.replacingOccurrences(of: "{query}", with: encode(query))
-        text = text.replacingOccurrences(of: "{clipboard}", with: encode(clipboard ?? ""))
-        text = text.replacingOccurrences(of: "{selection}", with: encode(selection ?? query))
+        // One pass over the template: a value that itself contains "{clipboard}" (typed or
+        // copied) must not be expanded again, which sequential replacements would do.
+        let values = ["{query}": query, "{clipboard}": clipboard ?? "", "{selection}": selection ?? query]
+        var text = ""
+        var rest = Substring(template)
+        while let open = rest.firstIndex(of: "{") {
+            text += rest[..<open]
+            if let (placeholder, value) = values.first(where: { rest[open...].hasPrefix($0.key) }) {
+                text += encode(value)
+                rest = rest[rest.index(open, offsetBy: placeholder.count)...]
+            } else {
+                text.append("{")
+                rest = rest[rest.index(after: open)...]
+            }
+        }
+        text += rest
         if !isWeb, text.hasPrefix("~") { text = (text as NSString).expandingTildeInPath }
         if text.hasPrefix("/") { return URL(filePath: text) }
         return URL(string: text) ?? URL(string: text.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed) ?? text)

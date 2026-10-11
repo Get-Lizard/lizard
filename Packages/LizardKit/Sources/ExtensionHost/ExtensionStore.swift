@@ -52,7 +52,8 @@ public actor ExtensionStore {
     }
 
     public func extensionNamed(_ name: String) -> InstalledExtension? {
-        load(root.appending(path: name, directoryHint: .isDirectory))
+        guard Self.isSafeName(name) else { return nil }
+        return load(root.appending(path: name, directoryHint: .isDirectory))
     }
 
     private func load(_ directory: URL) -> InstalledExtension? {
@@ -95,6 +96,7 @@ public actor ExtensionStore {
     }
 
     public func uninstall(_ name: String) throws {
+        guard Self.isSafeName(name) else { throw ExtensionHostError.notInstalled(name) }
         let directory = root.appending(path: name, directoryHint: .isDirectory)
         guard FileManager.default.fileExists(atPath: directory.path) else { return }
         try FileManager.default.removeItem(at: directory)
@@ -102,7 +104,7 @@ public actor ExtensionStore {
 
     private func installFolder(_ folder: URL, source: ExtensionSource) async throws -> InstalledExtension {
         let manifest = try ExtensionManifest.load(from: folder)
-        let directory = root.appending(path: manifest.name, directoryHint: .isDirectory)
+        let directory = try installDirectory(for: manifest)
         let package = directory.appending(path: "package", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         log("Copying \(manifest.title)…")
@@ -120,6 +122,24 @@ public actor ExtensionStore {
         try await build(directory: directory)
         guard let installed = load(directory) else { throw ExtensionHostError.buildFailed("manifest unreadable after install") }
         return installed
+    }
+
+    /// `package.json` comes from third parties (GitHub, `.lizardext` files, Raycast), and its
+    /// `name` and command names become paths under `root`. A name such as `../../Documents` would
+    /// otherwise make an install copy over (and an update delete) folders outside Lizard's data.
+    static func isSafeName(_ name: String) -> Bool {
+        !name.isEmpty && name.count <= 128 && name != "." && name != ".."
+            && name.range(of: #"^[A-Za-z0-9._@-]+$"#, options: .regularExpression) != nil
+    }
+
+    private func installDirectory(for manifest: ExtensionManifest) throws -> URL {
+        guard Self.isSafeName(manifest.name) else {
+            throw ExtensionHostError.buildFailed("“\(manifest.name)” isn't a valid extension name (use letters, digits and dashes).")
+        }
+        if let bad = manifest.commands.first(where: { !Self.isSafeName($0.name) }) {
+            throw ExtensionHostError.buildFailed("“\(bad.name)” isn't a valid command name (use letters, digits and dashes).")
+        }
+        return root.appending(path: manifest.name, directoryHint: .isDirectory)
     }
 
     // MARK: Updates
@@ -159,7 +179,7 @@ public actor ExtensionStore {
     @discardableResult
     public func importFromRaycast(_ folder: URL) async throws -> InstalledExtension {
         let manifest = try ExtensionManifest.load(from: folder)
-        let directory = root.appending(path: manifest.name, directoryHint: .isDirectory)
+        let directory = try installDirectory(for: manifest)
         let package = directory.appending(path: "package", directoryHint: .isDirectory)
         let build = directory.appending(path: "build", directoryHint: .isDirectory)
         try? FileManager.default.removeItem(at: package)

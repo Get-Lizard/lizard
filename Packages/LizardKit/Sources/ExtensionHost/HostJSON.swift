@@ -40,7 +40,8 @@ public enum HostJSON: Sendable, Hashable, Codable {
     public var string: String? {
         switch self {
         case .string(let value): value
-        case .number(let value): value.rounded() == value ? String(Int(value)) : String(value)
+        // Whole numbers print without ".0"; `Int(exactly:)` avoids trapping on huge/non-finite values.
+        case .number(let value): value.rounded() == value ? Int(exactly: value).map(String.init) ?? String(value) : String(value)
         case .bool(let value): String(value)
         default: nil
         }
@@ -74,6 +75,9 @@ public enum HostJSON: Sendable, Hashable, Codable {
     public init(any value: Any?) {
         switch value {
         case nil, is NSNull: self = .null
+        // Foundation numbers (JSONSerialization output) bridge to Bool when they are 0 or 1, so
+        // tell real booleans apart by their CF type before the Bool cast below can claim them.
+        case let value as NSNumber where CFGetTypeID(value) != CFBooleanGetTypeID(): self = .number(value.doubleValue)
         case let value as Bool: self = .bool(value)
         case let value as Int: self = .number(Double(value))
         case let value as Double: self = .number(value)

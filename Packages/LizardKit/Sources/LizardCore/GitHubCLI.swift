@@ -125,12 +125,8 @@ public enum GitHubCLI {
             ["auth", "login", "--web", "--hostname", "github.com", "--git-protocol", "https", "--skip-ssh-key", "--scopes", "repo,read:org,notifications"],
             environment: environment(managed: true), timeout: .seconds(900)
         ) { line in
-            // "First copy your one-time code: AB12-CD34" / "One-time code (AB12-CD34) copied…"
-            if line.lowercased().contains("code"), let match = line.firstMatch(of: /\b([A-Z0-9]{4}-[A-Z0-9]{4})\b/) {
-                code.withLock { $0 = String(match.1) }
-            }
-            let url = line.firstMatch(of: /https:\/\/github\.com\/login\/device\S*/).flatMap { URL(string: String($0.0)) }
-                ?? URL(string: "https://github.com/login/device")!
+            if let found = deviceCode(in: line) { code.withLock { $0 = found } }
+            let url = deviceURL(in: line)
             if let value = code.withLock({ $0 }), announced.withLock({ let first = !$0; $0 = true; return first }) {
                 onEvent(.visit(url: url, code: value))
             }
@@ -138,6 +134,19 @@ public enum GitHubCLI {
         guard login.succeeded else { throw CLIError.failed(login.tail(2)) }
         guard let final = await status(), final.isSignedIn else { throw CLIError.failed("GitHub didn't confirm the account.") }
         return final
+    }
+
+    /// The one-time code in a `gh auth login --web` line: "First copy your one-time code: AB12-CD34"
+    /// or "! One-time code (AB12-CD34) copied to clipboard".
+    static func deviceCode(in line: String) -> String? {
+        guard line.lowercased().contains("code"), let match = line.firstMatch(of: /\b([A-Z0-9]{4}-[A-Z0-9]{4})\b/) else { return nil }
+        return String(match.1)
+    }
+
+    /// The device-login page named in the line, or GitHub's standard one.
+    static func deviceURL(in line: String) -> URL {
+        line.firstMatch(of: /https:\/\/github\.com\/login\/device\S*/).flatMap { URL(string: String($0.0)) }
+            ?? URL(string: "https://github.com/login/device")!
     }
 
     /// Signs out of Lizard's own login (never touches a `gh` the user set up themselves).

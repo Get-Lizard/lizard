@@ -72,7 +72,7 @@ public enum MarkdownTokenizer {
         let trimmed = rest.trimmingCharacters(in: .whitespacesAndNewlines)
         if ["---", "***", "___"].contains(trimmed) { return [Token(kind: .rule, range: body)] }
         if rest.hasPrefix(">") { tokens.append(Token(kind: .blockquote, range: body)) }
-        for marker in ["- [ ] ", "* [ ] ", "- [x] ", "- [X] ", "* [x] "] where rest.hasPrefix(marker) {
+        for marker in ["- [ ] ", "* [ ] ", "- [x] ", "- [X] ", "* [x] ", "* [X] "] where rest.hasPrefix(marker) {
             tokens.append(Token(kind: .listMarker, range: NSRange(location: offset + leading, length: 2)))
             tokens.append(Token(kind: marker.contains("[ ]") ? .taskOpen : .taskDone, range: NSRange(location: offset + leading + 2, length: 3)))
             if !marker.contains("[ ]") {
@@ -88,7 +88,7 @@ public enum MarkdownTokenizer {
         return tokens + inlineTokens(ns, offset: offset)
     }
 
-    nonisolated(unsafe) static let inlinePatterns: [(Kind, NSRegularExpression)] = [
+    static let inlinePatterns: [(Kind, NSRegularExpression)] = [
         (.inlineCode, try! NSRegularExpression(pattern: "`[^`\\n]+`")),
         (.bold, try! NSRegularExpression(pattern: "(\\*\\*|__)(?=\\S)[^\\n]+?(?<=\\S)\\1")),
         (.italic, try! NSRegularExpression(pattern: "(?<![*_\\w])([*_])(?=\\S)[^*_\\n]+?(?<=\\S)\\1(?![*_\\w])")),

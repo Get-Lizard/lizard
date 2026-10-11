@@ -78,6 +78,9 @@ public final class ExtensionRuntime: @unchecked Sendable {
     private let errors = Pipe()
     private let continuation: AsyncStream<HostEvent>.Continuation
     private let lock = NSLock()
+    /// Serialises writes to the host's stdin: callbacks from the main actor and service replies
+    /// from background tasks would otherwise interleave lines longer than the pipe's atomic size.
+    private let writeLock = NSLock()
     private var buffer = Data()
     private var launchMessage: [String: Any]?
     private let services: HostServices
@@ -141,6 +144,8 @@ public final class ExtensionRuntime: @unchecked Sendable {
             self.continuation.yield(.exited(finished.terminationStatus))
             self.continuation.finish()
         }
+        // Writing to a host that just exited would raise SIGPIPE and kill Lizard; make it an error instead.
+        _ = fcntl(input.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1)
         do {
             try process.run()
         } catch {
@@ -170,7 +175,7 @@ public final class ExtensionRuntime: @unchecked Sendable {
     private func send(_ message: [String: Any]) {
         guard process.isRunning, var data = try? JSONSerialization.data(withJSONObject: message) else { return }
         data.append(0x0A)
-        try? input.fileHandleForWriting.write(contentsOf: data)
+        writeLock.withLock { try? input.fileHandleForWriting.write(contentsOf: data) }
     }
 
     private func receive(_ data: Data) {
