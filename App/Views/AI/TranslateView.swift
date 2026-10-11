@@ -1,9 +1,12 @@
+import AIEngine
 import NaturalLanguage
 import SwiftUI
 import Translation
 
-/// Translation in the launcher with Apple's on-device Translation framework: private, offline once
-/// a language pair is downloaded. Detects the source language; online Google is an explicit fallback.
+/// Translation in the launcher, on device. Apple Translation when the language pair is installed;
+/// until then Apple Intelligence translates right away, and the pair can download in the
+/// background (only when asked, so typing never opens the download sheet). Google is an explicit
+/// online fallback.
 struct TranslateView: View {
     @Environment(AppModel.self) private var app
     @State var text: String
@@ -12,6 +15,10 @@ struct TranslateView: View {
     @State private var detected: String?
     @State private var error: String?
     @State private var configuration: TranslationSession.Configuration?
+    /// The pair isn't installed: offer the download (it continues in the background).
+    @State private var missingPair: (source: Locale.Language, target: Locale.Language)?
+    @State private var preparing = false
+    @State private var engine = "Apple Translation"
     @State private var languages: [Locale.Language] = []
     @FocusState private var focused: Bool
 
@@ -48,6 +55,16 @@ struct TranslateView: View {
                 Divider()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
+                        if let pair = missingPair, error == nil {
+                            HStack(spacing: 8) {
+                                Image(systemName: "arrow.down.circle").foregroundStyle(Brand.moss)
+                                Text("Translated by Apple Intelligence. Download \(name(pair.target.minimalIdentifier)) for faster, offline translation; it keeps downloading in the background.")
+                                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                                Button(preparing ? "Downloading…" : "Download") { download(pair) }.controlSize(.small).disabled(preparing)
+                            }
+                            .padding(10)
+                            .background(Brand.moss.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        }
                         if let error {
                             Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange).font(.callout)
                             Button("Translate online with Google") { Task { await translateOnline() } }.buttonStyle(.link)
@@ -61,7 +78,7 @@ struct TranslateView: View {
                 .background(Brand.moss.opacity(0.05))
             }
             ActionBar(hints: [("Copy", "⌘↩"), ("Paste", "⌥↩"), ("Swap", "⌘S")]) {
-                Text("On-device · Apple Translation").font(.caption).foregroundStyle(.secondary)
+                Text("On-device · \(engine)").font(.caption).foregroundStyle(.secondary)
                 Button("") { app.copyText(result) }.keyboardShortcut(.return, modifiers: .command).opacity(0).disabled(result.isEmpty)
                 Button("") { app.pasteText(result) }.keyboardShortcut(.return, modifiers: .option).opacity(0).disabled(result.isEmpty)
                 Button("") { swap() }.keyboardShortcut("s", modifiers: .command).opacity(0)
@@ -71,6 +88,12 @@ struct TranslateView: View {
             let source = text
             // The session is only used here, within this task; Translation isn't annotated for Swift 6 yet.
             nonisolated(unsafe) let session = session
+            if preparing {
+                // Shows the system download sheet; "Done" lets it carry on in the background.
+                try? await session.prepareTranslation()
+                preparing = false
+                return
+            }
             do {
                 let response = try await session.translate(source)
                 if source == text { result = response.targetText }
@@ -82,7 +105,7 @@ struct TranslateView: View {
         .task(id: "\(text)|\(target)") {
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
-            translate()
+            await translate()
         }
         .task {
             let supported = await Task.detached { await LanguageAvailability().supportedLanguages }.value
@@ -92,7 +115,7 @@ struct TranslateView: View {
         }
     }
 
-    private func translate() {
+    private func translate() async {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             result = ""
@@ -105,10 +128,42 @@ struct TranslateView: View {
         error = nil
         let sourceLanguage = source.map { Locale.Language(identifier: $0) }
         let targetLanguage = Locale.Language(identifier: target)
-        if configuration?.source == sourceLanguage, configuration?.target == targetLanguage {
-            configuration?.invalidate()
+        // Installed pair: Apple Translation. Otherwise Apple Intelligence now, download optional.
+        let installed = await Task.detached {
+            guard let sourceLanguage else { return false }
+            return await LanguageAvailability().status(from: sourceLanguage, to: targetLanguage) == .installed
+        }.value
+        guard !Task.isCancelled else { return }
+        if installed {
+            engine = "Apple Translation"
+            missingPair = nil
+            if configuration?.source == sourceLanguage, configuration?.target == targetLanguage {
+                configuration?.invalidate()
+            } else {
+                configuration = TranslationSession.Configuration(source: sourceLanguage, target: targetLanguage)
+            }
+            return
+        }
+        if let sourceLanguage { missingPair = (sourceLanguage, targetLanguage) }
+        if let translated = await AppleIntelligence.translate(trimmed, to: Locale(identifier: "en").localizedString(forIdentifier: target) ?? target) {
+            guard !Task.isCancelled, trimmed == text.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
+            engine = "Apple Intelligence"
+            result = translated
         } else {
-            configuration = TranslationSession.Configuration(source: sourceLanguage, target: targetLanguage)
+            // No Apple Intelligence either: the download is the way (or Google, on request).
+            missingPair = nil
+            error = "\(name(target)) isn't downloaded on this Mac yet, and Apple Intelligence isn't available."
+            if let sourceLanguage { download((sourceLanguage, targetLanguage)) }
+        }
+    }
+
+    /// Asks macOS to download the pair; its sheet's "Done" leaves it downloading in the background.
+    private func download(_ pair: (source: Locale.Language, target: Locale.Language)) {
+        preparing = true
+        if configuration?.source == pair.source, configuration?.target == pair.target {
+            configuration?.invalidate()  // same pair: run the task again
+        } else {
+            configuration = TranslationSession.Configuration(source: pair.source, target: pair.target)
         }
     }
 
