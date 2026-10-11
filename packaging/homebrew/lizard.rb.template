@@ -16,6 +16,7 @@ cask "lizard" do
   depends_on macos: ">= :tahoe"
 
   app "Lizard.app"
+  binary "#{appdir}/Lizard.app/Contents/MacOS/lizardcli"
 
   uninstall quit: "io.lizard.app"
 

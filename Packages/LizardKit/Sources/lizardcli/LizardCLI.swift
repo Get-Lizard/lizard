@@ -9,7 +9,19 @@ import LizardCore
 ///   lizardcli transform <transform> <text> | apple-ai | gh-status
 @main
 struct LizardCLI {
+    /// Shipped inside Lizard.app (`Contents/MacOS/lizardcli`, linked onto PATH by Homebrew): use the
+    /// app's extension runtime. The link is resolved first, since Homebrew points at the bundle.
+    static func useBundledRuntime() {
+        guard ProcessInfo.processInfo.environment["LIZARD_SHIM_DIR"] == nil else { return }
+        let executable = URL(filePath: CommandLine.arguments[0]).resolvingSymlinksInPath()
+        let shim = executable.deletingLastPathComponent().deletingLastPathComponent().appending(path: "Resources/ExtensionShim")
+        if FileManager.default.fileExists(atPath: shim.appending(path: "host.js").path) {
+            setenv("LIZARD_SHIM_DIR", shim.path, 1)
+        }
+    }
+
     static func main() async {
+        useBundledRuntime()
         var args = Array(CommandLine.arguments.dropFirst())
         guard let command = args.first else { return usage() }
         args.removeFirst()

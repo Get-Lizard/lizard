@@ -11,6 +11,8 @@ updates. Follow this guide and your extension installs cleanly, updates automati
 
 ## 1. Quick start
 
+`lizardcli` ships inside Lizard. Homebrew puts it on your PATH; if you installed from the DMG, link it once with `sudo ln -sf /Applications/Lizard.app/Contents/MacOS/lizardcli /usr/local/bin/lizardcli`.
+
 ```sh
 lizardcli ext new my-extension <your-github-user>   # scaffold that passes validation (add assets/icon.png)
 cd my-extension && npm install                      # types for your editor; Lizard bundles at install time

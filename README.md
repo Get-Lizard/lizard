@@ -303,6 +303,7 @@ commands**.
   with *Install from File…*.
 - **Build your own:** `lizardcli ext new my-extension`, then follow **[docs/EXTENSIONS.md](docs/EXTENSIONS.md)** (written
   for people *and* AI agents). `lizardcli ext validate` checks your extension against the guidelines.
+  `lizardcli` ships inside Lizard. Homebrew puts it on your PATH; if you installed from the DMG, link it once with `sudo ln -sf /Applications/Lizard.app/Contents/MacOS/lizardcli /usr/local/bin/lizardcli`.
 - **Built-in extensions** (original code):
 
 | Extension | What it does |

@@ -20,7 +20,7 @@ export function Extensions() {
           Paste any GitHub repo link. Lizard runs Raycast extensions, checks for updates, and labels third-party code as External.
         </p>
         <pre className="mt-9 overflow-x-auto rounded-2xl border border-line bg-raised p-6 font-mono text-[13.5px] leading-7 text-muted">
-<span className="text-faint"># build one</span>{"\n"}<span className="text-ink">lizardcli ext new</span> my-extension{"\n"}<span className="text-ink">lizardcli ext validate</span> my-extension{"\n"}{"\n"}<span className="text-faint"># share it</span>{"\n"}<span className="text-ink">git push</span>{"  "}<span className="text-faint"># install from github.com/you/my-extension</span>
+<span className="text-faint"># build one (lizardcli comes with Lizard)</span>{"\n"}<span className="text-ink">lizardcli ext new</span> my-extension{"\n"}<span className="text-ink">lizardcli ext validate</span> my-extension{"\n"}{"\n"}<span className="text-faint"># share it</span>{"\n"}<span className="text-ink">git push</span>{"  "}<span className="text-faint"># install from github.com/you/my-extension</span>
         </pre>
       </div>
 

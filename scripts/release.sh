@@ -32,6 +32,12 @@ xcodebuild -project Lizard.xcodeproj -scheme Lizard -configuration Release \
   OTHER_CODE_SIGN_FLAGS="--timestamp" \
   build
 
+echo "▸ Bundling lizardcli"
+# The command-line tool ships inside the app; Homebrew links it onto PATH (cask \`binary\`).
+swift build -c release --arch arm64 --product lizardcli --package-path Packages/LizardKit
+cp "Packages/LizardKit/.build/arm64-apple-macosx/release/lizardcli" "$APP/Contents/MacOS/lizardcli"
+codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP/Contents/MacOS/lizardcli"
+
 echo "▸ Signing nested executables"
 # Mach-O files copied in as resources (esbuild's binary in the extension shim) aren't signed by
 # Xcode, and notarization rejects any unsigned or non-hardened binary.
