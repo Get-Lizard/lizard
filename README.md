@@ -65,7 +65,16 @@
 
 **Updates:** Lizard checks GitHub once a day and offers new versions in the menu bar and Settings › General.
 One click installs it: `brew upgrade` for Homebrew installs, otherwise it downloads the DMG, checks it is signed by
-Lizard's developer and notarized by Apple, swaps the app and restarts. Or run `brew upgrade --cask lizard` yourself.
+Lizard's developer and notarized by Apple, swaps the app and restarts. From Terminal:
+
+```sh
+brew trust get-lizard/tap   # once: lets Homebrew run the tap's command
+brew lizard-update          # refreshes only Lizard's tap, upgrades Lizard, restarts it
+brew lizard-update --check  # just show installed and latest versions
+```
+
+(`brew update && brew upgrade --cask lizard` works too; plain `brew upgrade` may say "already installed" until
+Homebrew refreshes its taps, which it does once a day.)
 
 ```sh
 brew install --cask get-lizard/tap/lizard

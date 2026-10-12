@@ -124,9 +124,14 @@ final class UpdateService {
         state = .installing("Updating with Homebrew…")
         let environment = ["HOMEBREW_NO_ENV_HINTS": "1"]
         // Homebrew refreshes taps only once a day; without this it may not know the new version
-        // yet and answer "the latest version is already installed".
-        _ = try? await ProcessRunner.run(brew, ["update", "--quiet"], environment: environment, timeout: .seconds(300))
-        let result = try? await ProcessRunner.run(brew, ["upgrade", "--cask", "lizard"], environment: environment, timeout: .seconds(900))
+        // yet and answer "the latest version is already installed". Only Lizard's tap is pulled
+        // (fast, nothing else changes), then the upgrade skips Homebrew's own auto-update.
+        let tap = URL(filePath: brew).deletingLastPathComponent().deletingLastPathComponent()
+            .appending(path: "Library/Taps/get-lizard/homebrew-tap").path
+        _ = try? await ProcessRunner.run("/usr/bin/git", ["-C", tap, "pull", "--ff-only", "--quiet"], timeout: .seconds(120))
+        let result = try? await ProcessRunner.run(
+            brew, ["upgrade", "--cask", "get-lizard/tap/lizard"], environment: environment.merging(["HOMEBREW_NO_AUTO_UPDATE": "1"]) { $1 },
+            timeout: .seconds(900))
         guard let result, result.succeeded else {
             state = .failed("Homebrew couldn't update Lizard: \(result?.tail(2) ?? "it didn't run"). Try `brew upgrade --cask lizard` in Terminal.")
             return
