@@ -122,9 +122,11 @@ final class UpdateService {
 
     private func installWithHomebrew(_ brew: String, release: AppRelease) async {
         state = .installing("Updating with Homebrew…")
-        let result = try? await ProcessRunner.run(
-            brew, ["upgrade", "--cask", "lizard"], environment: ["HOMEBREW_NO_AUTO_UPDATE": "0", "HOMEBREW_NO_ENV_HINTS": "1"],
-            timeout: .seconds(900))
+        let environment = ["HOMEBREW_NO_ENV_HINTS": "1"]
+        // Homebrew refreshes taps only once a day; without this it may not know the new version
+        // yet and answer "the latest version is already installed".
+        _ = try? await ProcessRunner.run(brew, ["update", "--quiet"], environment: environment, timeout: .seconds(300))
+        let result = try? await ProcessRunner.run(brew, ["upgrade", "--cask", "lizard"], environment: environment, timeout: .seconds(900))
         guard let result, result.succeeded else {
             state = .failed("Homebrew couldn't update Lizard: \(result?.tail(2) ?? "it didn't run"). Try `brew upgrade --cask lizard` in Terminal.")
             return

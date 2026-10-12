@@ -13,7 +13,7 @@ cask "lizard" do
   end
 
   depends_on arch: :arm64
-  depends_on macos: ">= :tahoe"
+  depends_on macos: :tahoe
 
   app "Lizard.app"
   binary "#{appdir}/Lizard.app/Contents/MacOS/lizardcli"
