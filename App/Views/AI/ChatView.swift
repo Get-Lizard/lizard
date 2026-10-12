@@ -258,6 +258,7 @@ struct ChatView: View {
                         return .handled
                     }
                     .padding(.vertical, 4)
+                VoiceButton(compact: true).padding(.bottom, 1)
                 if session.isStreaming {
                     Button { session.cancel() } label: {
                         Image(systemName: "stop.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)

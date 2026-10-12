@@ -65,6 +65,28 @@ public enum AppleIntelligence {
         }
     }
 
+    // MARK: Dictation polish
+
+    /// Tidies dictated text: punctuation, capitals, obvious recognition slips. Never rewrites the
+    /// meaning or adds anything. nil when unavailable (callers keep the raw text).
+    public static func polishDictation(_ text: String) async -> String? {
+        guard isAvailable else { return nil }
+        let session = LanguageModelSession(instructions: """
+            You clean up dictated text. Fix punctuation, capitalization and obvious speech-recognition \
+            mistakes, and remove repeated words and false starts. Keep the person's words, meaning, tone and \
+            language; never add, answer or explain anything. Reply with the cleaned text only.
+            """)
+        do {
+            let answer = try await session.respond(to: text, options: GenerationOptions(temperature: 0)).content
+            let trimmed = answer.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+            // A reply much longer than what was said means the model answered instead of cleaning.
+            guard !trimmed.isEmpty, trimmed.count < text.count * 2 + 20 else { return nil }
+            return trimmed
+        } catch {
+            return nil
+        }
+    }
+
     // MARK: Launcher intent triage
 
     @Generable

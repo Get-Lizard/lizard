@@ -11,6 +11,8 @@ extension KeyboardShortcuts.Name {
     static let clipboard = Self("clipboardHistory", default: .init(.v, modifiers: [.option, .shift]))
     static let askAI = Self("askAI", default: .init(.a, modifiers: [.option, .shift]))
     static let newNote = Self("newNote", default: .init(.n, modifiers: [.option, .shift]))
+    /// ⌃⌥Space: ⌥Space belongs to ChatGPT, Claude and Alfred; this one is free in common apps.
+    static let voiceTyping = Self("voiceTyping", default: .init(.space, modifiers: [.control, .option]))
     static let screenshotArea = Self("screenshotArea", default: .init(.s, modifiers: [.control, .shift]))
 }
 
@@ -27,6 +29,7 @@ struct HotkeyAction: Identifiable {
         HotkeyAction(name: .clipboard, title: "Clipboard History", detail: "Search and paste anything you copied.", symbol: "doc.on.clipboard"),
         HotkeyAction(name: .askAI, title: "Ask AI", detail: "Chat with the on-device AI.", symbol: "sparkles"),
         HotkeyAction(name: .newNote, title: "New Note", detail: "Start a markdown note.", symbol: "square.and.pencil"),
+        HotkeyAction(name: .voiceTyping, title: "Voice Typing", detail: "Hold and talk, release to type. Tap to keep listening.", symbol: "waveform"),
         HotkeyAction(name: .screenshotArea, title: "Capture Screenshot", detail: "Capture an area; Lizard names and files it.", symbol: "camera.viewfinder"),
     ]
 

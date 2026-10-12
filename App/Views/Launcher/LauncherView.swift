@@ -88,6 +88,7 @@ struct SearchView: View {
                         return .handled
                     }
                     .onChange(of: launcher.query) { noteTyping() }
+                VoiceButton()
             }
             .padding(.horizontal, 16)
             .frame(height: 58)
@@ -120,6 +121,7 @@ struct SearchView: View {
                     if let id { proxy.scrollTo(id) }
                 }
             }
+            if launcher.query.isEmpty { VoiceCoachBadge() }
             ActionBar(hints: [("Open", "↩"), ("Actions", "⌘K"), ("Ask AI", "⇥")]) {
                 if let item = launcher.selectedItem {
                     Text(item.kind.rawValue).font(.caption).foregroundStyle(.secondary)
