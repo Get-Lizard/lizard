@@ -56,6 +56,7 @@ private struct GeneralSettings: View {
     @State private var clipboard = Preferences.clipboardEnabled
     @State private var resume = Preferences.resumeLauncher
     @State private var expandSnippets = SnippetExpander.isEnabled
+    @State private var polishVoice = VoiceTypist.polish
     @State private var menuBarIcon = Preferences.showMenuBarIcon
     @State private var mode = PerformanceMode.current
 
@@ -80,6 +81,10 @@ private struct GeneralSettings: View {
                     .font(.caption).foregroundStyle(.secondary)
                 Toggle("Reopen where I left off", isOn: $resume)
                     .onChange(of: resume) { _, on in Preferences.resumeLauncher = on }
+                Toggle("Tidy voice typing with Apple Intelligence", isOn: $polishVoice)
+                    .onChange(of: polishVoice) { _, on in VoiceTypist.polish = on }
+                Text("Hold \(voiceShortcutText) anywhere and talk: words are typed as you speak. Turn this on to have Apple Intelligence fix slips and punctuation first; then the text appears when you finish.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Toggle("Expand snippet keywords as I type", isOn: $expandSnippets)
                     .onChange(of: expandSnippets) { _, on in
                         SnippetExpander.isEnabled = on

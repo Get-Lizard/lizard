@@ -5,5 +5,8 @@
 	<!-- Hardened runtime: allow sending Apple events (reading the selected Finder items, scripting apps for extensions). -->
 	<key>com.apple.security.automation.apple-events</key>
 	<true/>
+	<!-- Hardened runtime: the microphone, for voice typing. -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
 </dict>
 </plist>

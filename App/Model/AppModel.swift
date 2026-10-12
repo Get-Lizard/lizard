@@ -33,6 +33,7 @@ final class AppModel {
     private(set) var sync: SyncService!
     private(set) var screenshots: ScreenshotService!
     private(set) var updates: UpdateService!
+    private(set) var voice: VoiceTypist!
     @ObservationIgnored private(set) lazy var statusItem = LizardStatusItem(app: self)
 
     @ObservationIgnored private(set) var notes = NotesStore(root: Preferences.notesFolder)
@@ -69,6 +70,7 @@ final class AppModel {
         sync = SyncService(app: self)
         screenshots = ScreenshotService(app: self)
         updates = UpdateService(app: self)
+        voice = VoiceTypist(app: self)
     }
 
     func markOwnPasteboardWrite() {
@@ -288,6 +290,8 @@ final class AppModel {
             if self.setupWindow?.isVisible == true, self.setup.page == .done { self.setup.hotkeyTestPassed = true }
             self.toggleLauncher()
         }
+        KeyboardShortcuts.onKeyDown(for: .voiceTyping) { [weak self] in self?.voice.shortcutDown() }
+        KeyboardShortcuts.onKeyUp(for: .voiceTyping) { [weak self] in self?.voice.shortcutUp() }
         KeyboardShortcuts.onKeyDown(for: .workLog) { [weak self] in self?.showWorkLog() }
         KeyboardShortcuts.onKeyDown(for: .clipboard) { [weak self] in self?.open(.clipboard) }
         KeyboardShortcuts.onKeyDown(for: .askAI) { [weak self] in self?.open(.chat(nil)) }
@@ -305,6 +309,19 @@ final class AppModel {
     // MARK: Launcher panel
 
     var isLauncherVisible: Bool { launcherPanel?.isVisible == true }
+    var isLauncherKey: Bool { launcherPanel?.panel.isKeyWindow == true }
+
+    /// Voice typing into Lizard: inserts at the caret of the focused field. `make` gets the text
+    /// left of the caret and whether it's the main search, and returns what to insert.
+    func insertIntoLauncher(_ make: (String, Bool) -> String) {
+        guard let panel = launcherPanel?.panel else { return }
+        if !(panel.firstResponder is NSTextView) { focusLauncherField() }
+        guard let editor = panel.firstResponder as? NSTextView else { return }
+        let range = editor.selectedRange()
+        let before = (editor.string as NSString).substring(to: min(range.location, (editor.string as NSString).length))
+        let isSearch = { if case .search = launcher.route { true } else { false } }()
+        editor.insertText(make(before, isSearch), replacementRange: range)
+    }
 
     private func ensureLauncherPanel() -> FloatingPanelController<AnyView> {
         if let launcherPanel { return launcherPanel }
@@ -621,6 +638,15 @@ final class AppModel {
                 self?.createQuicklink(from: nil)
             },
             command("settings", "Lizard Settings", "Shortcuts, AI, accounts, extensions", "gearshape", .gray, keepOpen: false) { [weak self] in self?.openSettings() },
+            command("voice-typing", "Voice Typing", "Talk instead of typing, anywhere (hold \(voiceShortcutText))", "waveform", .pink, keepOpen: false) { [weak self] in
+                guard let self else { return }
+                self.hideLauncher()
+                self.previousApp?.activate()
+                Task {
+                    try? await Task.sleep(for: .milliseconds(250))
+                    self.voice.toggleFromButton()
+                }
+            },
             command("check-updates", "Check for Updates", "See if a newer Lizard is out, and install it", "arrow.down.circle", .gray, keepOpen: false) { [weak self] in
                 guard let self else { return }
                 self.hideLauncher()
