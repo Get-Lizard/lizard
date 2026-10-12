@@ -1,5 +1,5 @@
 import { GithubLogo } from "@phosphor-icons/react";
-import { InstallCommand, Requirements } from "../Install";
+import { DownloadButton, InstallCommand, Requirements } from "../Install";
 import { Mark } from "../Mark";
 import { REPO } from "./Nav";
 
@@ -13,10 +13,12 @@ export function Closing() {
         <h2 className="mt-8 text-5xl font-semibold tracking-[-0.035em] md:text-7xl">Get Lizard.</h2>
         <p className="mt-5 max-w-[42ch] text-[17px] leading-relaxed text-muted">Free and open source, signed and notarized by Apple.</p>
         <div className="mt-10 flex flex-col items-center gap-4">
+          <DownloadButton large />
+          <span className="text-[14px] text-faint">or with Homebrew</span>
           <InstallCommand large />
           <Requirements center />
-          <a href={`${REPO}/releases/latest`} className="text-[14px] text-muted underline decoration-line-strong underline-offset-4 hover:text-ink">
-            Or download the DMG
+          <a href={`${REPO}/releases`} className="text-[14px] text-muted underline decoration-line-strong underline-offset-4 hover:text-ink">
+            All releases and notes
           </a>
         </div>
       </div>

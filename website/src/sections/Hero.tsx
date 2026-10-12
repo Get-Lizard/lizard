@@ -1,6 +1,6 @@
 import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 import { useRef } from "react";
-import { InstallCommand, Requirements } from "../Install";
+import { DownloadButton, InstallCommand, Requirements } from "../Install";
 import { Mark } from "../Mark";
 import { Aurora, WanderingGecko } from "../Ambient";
 import { LiveDemo } from "../LiveDemo";
@@ -42,6 +42,10 @@ export function Hero() {
             A native launcher with a private AI that knows your notes. Apps, clipboard, screenshots and windows, all in one shortcut.
           </motion.p>
           <motion.div variants={rise} initial={reduce ? false : "hidden"} animate="show" custom={4} className="mt-9 flex flex-col items-start gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <DownloadButton large />
+              <span className="text-[14px] text-faint">or</span>
+            </div>
             <InstallCommand large />
             <Requirements />
             <a href="#ai" className="text-[14px] font-medium text-muted underline decoration-line-strong underline-offset-4 transition-colors hover:text-ink">

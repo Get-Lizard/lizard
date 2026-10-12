@@ -71,12 +71,19 @@ jobs:
           BUILD_NUMBER: ${{ github.run_number }}
         run: scripts/release.sh
 
+      # Same disk image under a fixed name, so one link always serves the newest version:
+      # https://github.com/Get-Lizard/lizard/releases/latest/download/Lizard.dmg
+      - name: Stable-named copy
+        run: cp "${{ steps.build.outputs.dmg }}" "$RUNNER_TEMP/Lizard.dmg"
+
       - name: GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.VERSION }}
           name: Lizard ${{ env.VERSION }}
-          files: ${{ steps.build.outputs.dmg }}
+          files: |
+            ${{ steps.build.outputs.dmg }}
+            ${{ runner.temp }}/Lizard.dmg
           generate_release_notes: true
 
       - name: Update the Homebrew cask

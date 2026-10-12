@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { AppleLogo, Check, Copy, TerminalWindow } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
+import { AppleLogo, Check, Copy, DownloadSimple, TerminalWindow } from "@phosphor-icons/react";
 
 export const BREW = "brew install --cask get-lizard/tap/lizard";
 
@@ -36,5 +36,41 @@ export function Requirements({ center = false }: { center?: boolean }) {
         Requires <strong className="font-semibold">macOS 26 Tahoe</strong> on <strong className="font-semibold">Apple silicon</strong> (M1 or later)
       </span>
     </p>
+  );
+}
+
+/** Always the newest release: GitHub serves the fixed-name asset of the latest release. */
+export const DMG_URL = "https://github.com/Get-Lizard/lizard/releases/latest/download/Lizard.dmg";
+
+/** The latest version number, read live from GitHub (falls back to no number). */
+function useLatestVersion() {
+  const [version, setVersion] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch("https://api.github.com/repos/Get-Lizard/lizard/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (alive && json?.tag_name) setVersion(String(json.tag_name).replace(/^v/, ""));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return version;
+}
+
+/** Signed, notarized disk image of the latest release. */
+export function DownloadButton({ large = false }: { large?: boolean }) {
+  const version = useLatestVersion();
+  return (
+    <a
+      href={DMG_URL}
+      className={`group inline-flex items-center gap-2.5 rounded-full bg-accent font-semibold text-accent-ink shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--accent)_70%,transparent)] transition-all duration-300 ease-out-expo hover:brightness-110 active:scale-[0.98] ${large ? "h-14 px-6 text-[16px]" : "h-12 px-5 text-[15px]"}`}
+    >
+      <DownloadSimple size={19} weight="bold" className="transition-transform duration-300 group-hover:translate-y-0.5" />
+      <span>Download for Mac</span>
+      {version && <span className="rounded-full bg-accent-ink/15 px-2 py-0.5 text-[12.5px] font-medium tabular-nums">v{version}</span>}
+    </a>
   );
 }
