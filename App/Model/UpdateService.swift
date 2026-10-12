@@ -120,23 +120,49 @@ final class UpdateService {
         }
     }
 
+    /// Homebrew quits Lizard while upgrading it (the cask's `uninstall quit`), so the upgrade runs
+    /// in a small script after Lizard has quit: pull the tap, upgrade, reinstall if the app on disk
+    /// is still old (stale Homebrew records), then reopen. Lizard checks its version on the next
+    /// launch and falls back to the verified DMG if Homebrew still didn't deliver.
     private func installWithHomebrew(_ brew: String, release: AppRelease) async {
         state = .installing("Updating with Homebrew…")
-        let environment = ["HOMEBREW_NO_ENV_HINTS": "1"]
-        // Homebrew refreshes taps only once a day; without this it may not know the new version
-        // yet and answer "the latest version is already installed". Only Lizard's tap is pulled
-        // (fast, nothing else changes), then the upgrade skips Homebrew's own auto-update.
         let tap = URL(filePath: brew).deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "Library/Taps/get-lizard/homebrew-tap").path
-        _ = try? await ProcessRunner.run("/usr/bin/git", ["-C", tap, "pull", "--ff-only", "--quiet"], timeout: .seconds(120))
-        let result = try? await ProcessRunner.run(
-            brew, ["upgrade", "--cask", "get-lizard/tap/lizard"], environment: environment.merging(["HOMEBREW_NO_AUTO_UPDATE": "1"]) { $1 },
-            timeout: .seconds(900))
-        guard let result, result.succeeded else {
-            state = .failed("Homebrew couldn't update Lizard: \(result?.tail(2) ?? "it didn't run"). Try `brew upgrade --cask lizard` in Terminal.")
+        let app = Bundle.main.bundleURL.path
+        let log = AppPaths.applicationSupport.appending(path: "update.log").path
+        let script = """
+            exec >"\(log)" 2>&1
+            while kill -0 \(ProcessInfo.processInfo.processIdentifier) 2>/dev/null; do sleep 0.3; done
+            export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1
+            git -C "\(tap)" pull --ff-only --quiet
+            "\(brew)" upgrade --cask get-lizard/tap/lizard
+            installed=$(defaults read "\(app)/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null)
+            if [ "$installed" != "\(release.version)" ]; then "\(brew)" reinstall --cask get-lizard/tap/lizard; fi
+            /usr/bin/open "\(app)"
+            """
+        UserDefaults.standard.set(release.version, forKey: Self.expectedKey)
+        _ = try? ProcessRunner.launch("/bin/sh", ["-c", script], onLine: { _ in })
+        quitForUpdate()
+    }
+
+    private static let expectedKey = "Lizard.UpdateExpected"
+
+    /// After an update restart: if this isn't the version we updated to, finish it from the DMG.
+    func verifyAfterUpdate() {
+        guard let expected = UserDefaults.standard.string(forKey: Self.expectedKey) else { return }
+        UserDefaults.standard.removeObject(forKey: Self.expectedKey)
+        guard AppRelease.isNewer(expected, than: currentVersion) else {
+            app?.showHUD("Updated to Lizard \(currentVersion)")
             return
         }
-        relaunch()
+        Task {
+            await check()
+            guard let release = available, let dmg = release.dmgURL, isInstalledApp else {
+                state = .failed("The update to \(expected) didn't install. Run `brew lizard-update` in Terminal or download it from GitHub.")
+                return
+            }
+            await installFromDMG(dmg, release: release)
+        }
     }
 
     private func installFromDMG(_ url: URL, release: AppRelease) async {
@@ -161,6 +187,7 @@ final class UpdateService {
             try await verify(staged)
 
             state = .installing("Installing…")
+            UserDefaults.standard.set(release.version, forKey: Self.expectedKey)
             let current = Bundle.main.bundleURL
             let backup = work.appending(path: "Lizard-old.app")
             try FileManager.default.moveItem(at: current, to: backup)
@@ -186,6 +213,13 @@ final class UpdateService {
         guard info.output.contains("TeamIdentifier=\(Self.teamID)") else { throw UpdateError("The new version isn't signed by Lizard's developer, so it wasn't installed.") }
         let gatekeeper = try await ProcessRunner.run("/usr/sbin/spctl", ["--assess", "--type", "execute", app.path], timeout: .seconds(120))
         guard gatekeeper.succeeded else { throw UpdateError("macOS didn't accept the new version (not notarized), so it wasn't installed.") }
+    }
+
+    /// Quit cleanly so the update script can replace the app (no relaunch from here).
+    private func quitForUpdate() {
+        state = .installing("Restarting…")
+        isRelaunching = true
+        NSApp.terminate(nil)
     }
 
     /// Quit and start the new version once this process has exited.

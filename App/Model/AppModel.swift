@@ -194,6 +194,7 @@ final class AppModel {
         knowledge.start()
         sync.start()
         updates.start()
+        updates.verifyAfterUpdate()
 
         let firstRun = !SetupModel.hasCompletedSetup
         let hasArgFlag = CommandLine.arguments.contains { $0.hasPrefix("--") }
