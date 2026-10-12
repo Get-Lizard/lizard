@@ -1,9 +1,9 @@
 import KeyboardShortcuts
 import SwiftUI
 
-/// The voice-typing shortcut as text ("⌃⌥Space"), following what the person recorded.
+/// The voice-typing shortcut as text ("⌃⌥V"), following what the person recorded.
 @MainActor
-var voiceShortcutText: String { KeyboardShortcuts.getShortcut(for: .voiceTyping)?.description ?? "⌃⌥Space" }
+var voiceShortcutText: String { KeyboardShortcuts.getShortcut(for: .voiceTyping)?.description ?? "⌃⌥V" }
 
 /// A glowing mic capsule in Lizard's fields: shows the shortcut, starts dictation on click, and
 /// turns into a live waveform while listening.

@@ -29,6 +29,20 @@ final class SpeechEngine {
     private var analyzer: SpeechAnalyzer?
     private var input: AsyncStream<AnalyzerInput>.Continuation?
     private var resultsTask: Task<Void, Never>?
+    private var levelTask: Task<Void, Never>?
+    private var levelContinuation: AsyncStream<Float>.Continuation?
+
+    /// The tap runs on Core Audio's own queue, so its block must not be main-actor isolated
+    /// (a closure written inside this @MainActor class would be, and Swift traps when it runs).
+    nonisolated private static func installTap(
+        on node: AVAudioInputNode, format: AVAudioFormat, converter: BufferConverter,
+        audio: AsyncStream<AnalyzerInput>.Continuation, levels: AsyncStream<Float>.Continuation
+    ) {
+        node.installTap(onBus: 0, bufferSize: 2048, format: format) { @Sendable buffer, _ in
+            levels.yield(BufferConverter.level(of: buffer))
+            if let converted = converter.convert(buffer) { audio.yield(AnalyzerInput(buffer: converted)) }
+        }
+    }
 
     static func requestMicrophone() async -> Bool {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
@@ -71,12 +85,12 @@ final class SpeechEngine {
 
         let (stream, continuation) = AsyncStream<AnalyzerInput>.makeStream()
         input = continuation
-        let converter = BufferConverter(from: micFormat, to: format)
+        let (levels, levelSink) = AsyncStream<Float>.makeStream(bufferingPolicy: .bufferingNewest(4))
+        levelContinuation = levelSink
+        Self.installTap(on: inputNode, format: micFormat, converter: BufferConverter(from: micFormat, to: format), audio: continuation, levels: levelSink)
         let levelHandler = onLevel
-        inputNode.installTap(onBus: 0, bufferSize: 2048, format: micFormat) { buffer, _ in
-            let level = BufferConverter.level(of: buffer)
-            Task { @MainActor in levelHandler?(level) }
-            if let converted = converter.convert(buffer) { continuation.yield(AnalyzerInput(buffer: converted)) }
+        levelTask = Task { @MainActor in
+            for await level in levels { levelHandler?(level) }
         }
         audio.prepare()
         try audio.start()
@@ -116,11 +130,14 @@ final class SpeechEngine {
         }
         input?.finish()
         input = nil
+        levelContinuation?.finish()
+        levelContinuation = nil
+        levelTask?.cancel()
     }
 }
 
 /// Converts microphone buffers to the analyzer's format; used from the audio thread.
-private final class BufferConverter: @unchecked Sendable {
+final class BufferConverter: @unchecked Sendable {
     private let converter: AVAudioConverter?
     private let output: AVAudioFormat
 

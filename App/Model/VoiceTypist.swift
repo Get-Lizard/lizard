@@ -5,7 +5,7 @@ import Clipboard
 import Observation
 import SwiftUI
 
-/// Voice typing. Hold the shortcut (⌃⌥Space by default) and talk, release to type; or tap it to keep
+/// Voice typing. Hold the shortcut (⌃⌥V by default) and talk, release to type; or tap it to keep
 /// listening hands-free and tap again (or pause) to finish. Esc cancels. The text goes where you
 /// are: Lizard's own field (search, chat, notes…) when Lizard is in front, otherwise the app you're in.
 @Observable

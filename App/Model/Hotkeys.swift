@@ -11,8 +11,8 @@ extension KeyboardShortcuts.Name {
     static let clipboard = Self("clipboardHistory", default: .init(.v, modifiers: [.option, .shift]))
     static let askAI = Self("askAI", default: .init(.a, modifiers: [.option, .shift]))
     static let newNote = Self("newNote", default: .init(.n, modifiers: [.option, .shift]))
-    /// ⌃⌥Space: ⌥Space belongs to ChatGPT, Claude and Alfred; this one is free in common apps.
-    static let voiceTyping = Self("voiceTyping", default: .init(.space, modifiers: [.control, .option]))
+    /// ⌃⌥V ("V" for voice): ⌘V is Paste and ⌥Space belongs to ChatGPT, Claude and Alfred.
+    static let voiceTyping = Self("voiceTyping", default: .init(.v, modifiers: [.control, .option]))
     static let screenshotArea = Self("screenshotArea", default: .init(.s, modifiers: [.control, .shift]))
 }
 

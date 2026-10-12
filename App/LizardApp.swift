@@ -21,7 +21,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        CrashRecovery.start()
         model.start()
+        if CrashRecovery.recovered {
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1.5))
+                model.showHUD("Lizard hit a problem and restarted itself")
+            }
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        CrashRecovery.markCleanExit()
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
