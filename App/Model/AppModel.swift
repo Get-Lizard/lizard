@@ -195,6 +195,7 @@ final class AppModel {
         sync.start()
         updates.start()
         updates.verifyAfterUpdate()
+        ShortcutConflictCheck.start()
 
         let firstRun = !SetupModel.hasCompletedSetup
         let hasArgFlag = CommandLine.arguments.contains { $0.hasPrefix("--") }

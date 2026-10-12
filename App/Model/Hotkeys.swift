@@ -134,3 +134,46 @@ enum SpotlightShortcut {
         return true
     }
 }
+
+/// Notices when Spotlight has ⌘Space again while it's also Lizard's shortcut (someone turned
+/// Spotlight's shortcut back on in System Settings) and offers to sort it out in one click.
+@MainActor
+enum ShortcutConflictCheck {
+    private static var askedThisRun = false
+    private static var timer: Timer?
+
+    static func start() {
+        // At launch, then every 10 minutes (the setting can change while Lizard runs).
+        Task {
+            try? await Task.sleep(for: .seconds(6))
+            check()
+        }
+        let timer = Timer(timeInterval: 600, repeats: true) { _ in MainActor.assumeIsolated { check() } }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    static var hasConflict: Bool {
+        LauncherShortcut.same(LauncherShortcut.current, LauncherShortcut.commandSpace) && SpotlightShortcut.isEnabled
+    }
+
+    static func check() {
+        guard !askedThisRun, SetupModel.hasCompletedSetup, hasConflict else { return }
+        askedThisRun = true
+        let alert = NSAlert()
+        alert.messageText = "Spotlight has ⌘Space again"
+        alert.informativeText = "Spotlight's shortcut was turned back on, so ⌘Space opens Spotlight instead of Lizard. Give ⌘Space back to Lizard, or move Lizard to ⌃Space and keep Spotlight on ⌘Space."
+        alert.addButton(withTitle: "Give ⌘Space to Lizard")
+        alert.addButton(withTitle: "Use ⌃Space for Lizard")
+        alert.addButton(withTitle: "Not Now")
+        NSApp.activate(ignoringOtherApps: true)
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            Task { await SpotlightShortcut.sync(launcher: LauncherShortcut.commandSpace) }
+        case .alertSecondButtonReturn:
+            Task { await LauncherShortcut.use(LauncherShortcut.controlSpace) }
+        default:
+            break
+        }
+    }
+}
