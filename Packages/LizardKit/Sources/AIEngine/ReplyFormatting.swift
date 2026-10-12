@@ -3,18 +3,45 @@ import Foundation
 /// Keeps chat replies readable. Small on-device models sometimes answer a plain question with a
 /// whole HTML page ("<!DOCTYPE html>…"); unless the person asked for code, that becomes text.
 public enum ReplyFormatting {
-    /// Words that mean the person wants code, so HTML in the reply is on purpose.
-    static let codeWords = ["html", "code", "css", "javascript", "script", "snippet", "markup", "web page", "webpage", "website", "template", "tag", "<"]
+    /// Words that mean the person wants code (so code in the reply is on purpose).
+    static let codeWords = [
+        "code", "html", "css", "javascript", "typescript", "swift", "python", "java", "kotlin", "rust", "golang", " go ", "ruby", "php",
+        "sql", "bash", "shell", "zsh", "terminal", "command", "script", "regex", "json", "yaml", "xml", "markdown", "snippet",
+        "function", "method", "class", "struct", "enum", "variable", "compile", "error", "exception", "stack trace", "bug", "debug",
+        "api", "endpoint", "query", "git", "docker", "kubernetes", "kubectl", "npm", "brew", "install", "implement", "refactor",
+        "program", "algorithm", "web page", "webpage", "website", "template", "markup", "<", "{", "()", "=>", "`",
+    ]
 
     public static func wantsCode(_ question: String) -> Bool {
-        let lower = question.lowercased()
+        let lower = " " + question.lowercased() + " "
         return codeWords.contains { lower.contains($0) }
     }
 
-    /// The reply as the person should see it.
+    /// The reply as the person should see it. Small on-device models like to tack code onto plain
+    /// answers (or answer with a whole web page); unless code was asked for, that's removed.
     public static func tidy(_ reply: String, question: String) -> String {
-        guard !wantsCode(question), looksLikeHTMLDocument(reply) else { return reply }
-        return markdown(fromHTML: reply)
+        guard !wantsCode(question) else { return reply }
+        if looksLikeHTMLDocument(reply) { return markdown(fromHTML: reply) }
+        return withoutUnaskedCode(reply)
+    }
+
+    /// Drops fenced code blocks (finished or still streaming) when the words around them already
+    /// answer. A reply that is only code is left alone.
+    static func withoutUnaskedCode(_ reply: String) -> String {
+        guard reply.contains("```") else { return reply }
+        var prose: [String] = []
+        var inFence = false
+        for line in reply.components(separatedBy: "\n") {
+            if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+                inFence.toggle()
+                continue
+            }
+            if !inFence { prose.append(line) }
+        }
+        let text = prose.joined(separator: "\n")
+            .replacingOccurrences(of: #"\n{3,}"#, with: "\n\n", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.count >= 20 ? text : reply
     }
 
     static func looksLikeHTMLDocument(_ text: String) -> Bool {

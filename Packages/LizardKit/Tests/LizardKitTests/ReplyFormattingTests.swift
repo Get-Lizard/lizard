@@ -30,3 +30,33 @@ import Testing
         #expect(ReplyFormatting.tidy(reply, question: "how do I compare numbers") == reply)
     }
 }
+
+@Suite struct UnaskedCodeTests {
+    let reply = """
+        Donald Trump is a former U.S. president who served from 2017 to 2021.
+
+        ```swift
+        import Foundation
+
+        func describeDonaldTrump() -> String {
+            return "Donald Trump is a former U.S. president."
+        }
+
+        // E
+        """
+
+    @Test func plainQuestionDropsTackedOnCode() {
+        #expect(ReplyFormatting.tidy(reply, question: "who is donald trump?") == "Donald Trump is a former U.S. president who served from 2017 to 2021.")
+    }
+
+    @Test func codeQuestionsKeepCode() {
+        for question in ["write a swift function that describes a president", "how do I do this in bash", "regex for emails", "fix this error: nil found"] {
+            #expect(ReplyFormatting.tidy(reply, question: question) == reply, "\(question)")
+        }
+    }
+
+    @Test func codeOnlyRepliesStay() {
+        let only = "```bash\nls -la\n```"
+        #expect(ReplyFormatting.tidy(only, question: "list files") == only)
+    }
+}

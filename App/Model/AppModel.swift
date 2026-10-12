@@ -235,6 +235,10 @@ final class AppModel {
         if arguments.contains("--show-snippets") { Task { try? await Task.sleep(for: .seconds(1.5)); showLauncher(); launcher.push(.snippets) } }
         // Testing the updater end to end: check now and install whatever is newer.
         if arguments.contains("--update-now") { Task { await updates.check(); updates.install() } }
+        if let index = arguments.firstIndex(of: "--chat") {
+            let text = index + 1 < arguments.count && !arguments[index + 1].hasPrefix("--") ? arguments[index + 1] : nil
+            Task { try? await Task.sleep(for: .seconds(1.5)); open(.chat(text)) }
+        }
         if arguments.contains("--show-worklog") { Task { try? await Task.sleep(for: .seconds(1.5)); showWorkLog() } }
         if arguments.contains("--show-review") { Task { try? await Task.sleep(for: .seconds(1.5)); openPerformanceReview() } }
         if let index = arguments.firstIndex(of: "--show-setup") {
