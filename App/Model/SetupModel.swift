@@ -2,6 +2,7 @@ import AppKit
 import ApplicationServices
 import ExtensionHost
 import Foundation
+import ServiceManagement
 import Observation
 
 /// First-run setup: hotkeys → permissions → folders → AI → live test. Mirrors Cocoon's paged
@@ -67,8 +68,17 @@ final class SetupModel {
         if let index = Self.pages.firstIndex(of: page), index > 0 { page = Self.pages[index - 1] }
     }
 
+    /// Offered (ticked) on the last page: a launcher has to be running for its shortcut to work.
+    var openAtLogin = true
+
     func finish() {
         Self.hasCompletedSetup = true
+        // Only for an installed app, not a development build that moves around.
+        let path = Bundle.main.bundleURL.path
+        if openAtLogin, path.hasPrefix("/Applications/") || path.hasPrefix(NSHomeDirectory() + "/Applications/"),
+            SMAppService.mainApp.status != .enabled {
+            try? SMAppService.mainApp.register()
+        }
         UserDefaults.standard.removeObject(forKey: Self.stepKey)
         trustPoll?.cancel()
     }

@@ -296,6 +296,18 @@ private struct DonePage: View {
                         in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .animation(.spring, value: app.setup.hotkeyTestPassed)
             }
+            @Bindable var setup = app.setup
+            Toggle(isOn: $setup.openAtLogin) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Open Lizard at login").font(.headline)
+                    Text("So your shortcut works right after you restart your Mac.").font(.callout).foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+            .padding(12)
+            .frame(maxWidth: 420)
+            .surface()
+            .padding(.top, 8)
         }
         .frame(maxWidth: .infinity)
     }
