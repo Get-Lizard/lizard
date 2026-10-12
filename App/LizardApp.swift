@@ -25,7 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard !exiting else { return .terminateNow }
+        guard !exiting, model.updates?.isRelaunching != true else { return .terminateNow }
         exiting = true
         Task { @MainActor in
             await model.prepareForTermination()

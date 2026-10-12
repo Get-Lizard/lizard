@@ -42,6 +42,10 @@ final class LizardStatusItem: NSObject, NSMenuDelegate {
             if let shortcut { entry.setShortcut(for: shortcut) }
             menu.addItem(entry)
         }
+        if let release = app?.updates.available {
+            add("Update to Lizard \(release.version)…") { [weak app] in app?.updates.install() }
+            menu.addItem(.separator())
+        }
         add("Open Lizard", .toggleLauncher) { [weak app] in app?.toggleLauncher() }
         add("Ask AI", .askAI) { [weak app] in app?.open(.chat(nil)) }
         add("Clipboard History", .clipboard) { [weak app] in app?.open(.clipboard) }

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 const stats = [
   { value: 3, suffix: " ms", label: "from ⌘ Space to typing" },
   { value: 0, suffix: "", label: "accounts, servers or trackers" },
-  { value: 197, suffix: "", label: "automated tests on every change" },
+  { value: 202, suffix: "", label: "automated tests on every change" },
   { value: 100, suffix: "%", label: "on-device AI until you say otherwise" },
 ];
 

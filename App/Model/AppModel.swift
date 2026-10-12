@@ -32,6 +32,7 @@ final class AppModel {
     private(set) var knowledge: KnowledgeService!
     private(set) var sync: SyncService!
     private(set) var screenshots: ScreenshotService!
+    private(set) var updates: UpdateService!
     @ObservationIgnored private(set) lazy var statusItem = LizardStatusItem(app: self)
 
     @ObservationIgnored private(set) var notes = NotesStore(root: Preferences.notesFolder)
@@ -67,6 +68,7 @@ final class AppModel {
         knowledge = KnowledgeService(app: self)
         sync = SyncService(app: self)
         screenshots = ScreenshotService(app: self)
+        updates = UpdateService(app: self)
     }
 
     func markOwnPasteboardWrite() {
@@ -189,6 +191,7 @@ final class AppModel {
         accounts.refreshGitHub()
         knowledge.start()
         sync.start()
+        updates.start()
 
         let firstRun = !SetupModel.hasCompletedSetup
         let hasArgFlag = CommandLine.arguments.contains { $0.hasPrefix("--") }
@@ -230,6 +233,8 @@ final class AppModel {
             Task { try? await Task.sleep(for: .seconds(1.5)); showLauncher(); launcher.push(.snippetEditor(Snippet(name: "Email signature", text: "Best,\nVitor\n{date}", keyword: ";sig"), isNew: true)) }
         }
         if arguments.contains("--show-snippets") { Task { try? await Task.sleep(for: .seconds(1.5)); showLauncher(); launcher.push(.snippets) } }
+        // Testing the updater end to end: check now and install whatever is newer.
+        if arguments.contains("--update-now") { Task { await updates.check(); updates.install() } }
         if arguments.contains("--show-worklog") { Task { try? await Task.sleep(for: .seconds(1.5)); showWorkLog() } }
         if arguments.contains("--show-review") { Task { try? await Task.sleep(for: .seconds(1.5)); openPerformanceReview() } }
         if let index = arguments.firstIndex(of: "--show-setup") {
@@ -612,6 +617,19 @@ final class AppModel {
                 self?.createQuicklink(from: nil)
             },
             command("settings", "Lizard Settings", "Shortcuts, AI, accounts, extensions", "gearshape", .gray, keepOpen: false) { [weak self] in self?.openSettings() },
+            command("check-updates", "Check for Updates", "See if a newer Lizard is out, and install it", "arrow.down.circle", .gray, keepOpen: false) { [weak self] in
+                guard let self else { return }
+                self.hideLauncher()
+                Task {
+                    await self.updates.check()
+                    switch self.updates.state {
+                    case .available(let release): self.showHUD("Lizard \(release.version) is available. Install it from the menu bar or Settings")
+                    case .upToDate: self.showHUD("You're on the latest Lizard (\(self.updates.currentVersion))")
+                    case .failed(let message): self.showHUD(message)
+                    default: break
+                    }
+                }
+            },
             command("setup", "Run Setup", "Shortcuts, permissions, AI, GitHub", "sparkles.rectangle.stack", .gray, keepOpen: false) { [weak self] in self?.showSetup() },
             command("quit", "Quit Lizard", "", "power", .gray, keepOpen: false) { NSApp.terminate(nil) },
         ]

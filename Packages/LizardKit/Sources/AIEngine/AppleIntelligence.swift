@@ -216,10 +216,25 @@ public struct AppleFMProvider: AIProvider {
                     continuation.yield(.completed(.endTurn, providerContent: nil))
                     continuation.finish()
                 } catch {
-                    continuation.finish(throwing: error)
+                    continuation.finish(throwing: Self.plain(error))
                 }
             }
             continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    /// Apple's errors in words people understand (chat falls through to the next AI on any error).
+    static func plain(_ error: Error) -> Error {
+        guard let generation = error as? LanguageModelSession.GenerationError else { return error }
+        switch generation {
+        case .guardrailViolation:
+            return AIProviderError.unavailable("Apple Intelligence's safety filter blocked this; it sometimes misfires on short or unusual text. Try rephrasing, or add another AI in Settings › AI.")
+        case .exceededContextWindowSize:
+            return AIProviderError.unavailable("That's too long for Apple Intelligence. Start a new chat, or use a local model or cloud AI.")
+        case .unsupportedLanguageOrLocale:
+            return AIProviderError.unavailable("Apple Intelligence doesn't support this language yet.")
+        default:
+            return error
         }
     }
 

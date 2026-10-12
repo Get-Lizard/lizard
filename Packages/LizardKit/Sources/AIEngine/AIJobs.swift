@@ -63,7 +63,11 @@ public enum AIJob: Sendable, Equatable {
         case .rewrite(let text, let style):
             return ("Rewrite the user's text to be \(style). Keep meaning and facts. Reply with the rewritten text only.", String(text.prefix(8_000)), 900)
         case .answer(let question):
-            return ("You are Lizard, a concise assistant inside a Mac launcher. Answer directly; use markdown.", question, 1_200)
+            return ("""
+                You are Lizard, a concise assistant inside a Mac launcher. Answer directly in plain text; short \
+                Markdown is fine. No HTML or code unless asked (then a fenced block with its language). You can't \
+                see live data such as weather or news: say so instead of guessing.
+                """, question, 1_200)
         }
     }
 }

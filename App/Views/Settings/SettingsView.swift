@@ -61,6 +61,7 @@ private struct GeneralSettings: View {
 
     var body: some View {
         Form {
+            UpdatesSection()
             Section {
                 Toggle("Open Lizard at login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, on in
@@ -112,3 +113,65 @@ private struct GeneralSettings: View {
     }
 }
 
+
+/// Current version, the latest release, and one-click install.
+private struct UpdatesSection: View {
+    @Environment(AppModel.self) private var app
+    @State private var autoCheck = UpdateService.autoCheck
+
+    var body: some View {
+        let updates = app.updates!
+        Section("Updates") {
+            HStack(spacing: 12) {
+                Image(systemName: icon(updates.state)).font(.title2).foregroundStyle(Brand.moss).frame(width: 28)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title(updates)).font(.headline)
+                    Text(detail(updates)).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                switch updates.state {
+                case .available:
+                    Button("Install Update") { updates.install() }.buttonStyle(.borderedProminent).tint(Brand.moss)
+                case .installing, .checking:
+                    ProgressView().controlSize(.small)
+                default:
+                    Button("Check Now") { Task { await updates.check() } }
+                }
+            }
+            if case .available(let release) = updates.state, !release.notes.isEmpty {
+                DisclosureGroup("What's new") {
+                    Text(release.notes.prefix(2_000)).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
+                }
+            }
+            Toggle("Check for updates automatically", isOn: $autoCheck)
+                .onChange(of: autoCheck) { _, on in UpdateService.autoCheck = on }
+        }
+    }
+
+    private func icon(_ state: UpdateService.State) -> String {
+        switch state {
+        case .available: "arrow.down.circle.fill"
+        case .failed: "exclamationmark.triangle"
+        default: "checkmark.seal"
+        }
+    }
+
+    private func title(_ updates: UpdateService) -> String {
+        switch updates.state {
+        case .available(let release): "Lizard \(release.version) is available"
+        case .installing(let step): step
+        default: "Lizard \(updates.currentVersion)"
+        }
+    }
+
+    private func detail(_ updates: UpdateService) -> String {
+        switch updates.state {
+        case .idle: "Checks GitHub once a day."
+        case .checking: "Checking…"
+        case .upToDate: "You're on the latest version."
+        case .available: "You have \(updates.currentVersion). Installing keeps your settings and data, then restarts Lizard."
+        case .installing: "Lizard restarts when it's done."
+        case .failed(let message): message
+        }
+    }
+}

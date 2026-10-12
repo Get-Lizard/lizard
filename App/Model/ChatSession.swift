@@ -35,8 +35,11 @@ final class ChatSession: Identifiable {
     @ObservationIgnored private let ai: AIService
 
     static let system = """
-        You are Lizard, a fast assistant inside a Mac launcher used by a software engineer. \
-        Answer concisely and directly. Use markdown; put code in fenced blocks with a language.
+        You are Lizard, a fast assistant inside a Mac launcher. Answer in plain, conversational text, \
+        concisely and directly; short Markdown (bold, lists) is fine. Never reply with HTML, a web page or \
+        code unless the user asks for code; when they do, put it in a fenced Markdown block with its \
+        language (```swift, ```bash…). You can't browse the web or see live data such as today's weather, \
+        news, prices or scores: say so in one sentence and suggest where to check, instead of guessing.
         """
 
     init(ai: AIService, saved: Saved? = nil) {
@@ -77,6 +80,7 @@ final class ChatSession: Identifiable {
             return
         }
         isStreaming = true
+        let question = messages.last?.text ?? ""
         let request = ChatRequest(system: Self.system, messages: Array(messages.suffix(20)), maxTokens: 2_000, thinking: false)
         task = Task {
             defer {
@@ -93,14 +97,14 @@ final class ChatSession: Identifiable {
                         switch event {
                         case .textDelta(let delta):
                             text += delta
-                            items[index].text = AIJobRunner.cleaned(text)
+                            items[index].text = ReplyFormatting.tidy(AIJobRunner.cleaned(text), question: question)
                         case .status(let status):
                             if text.isEmpty { items[index].text = "_\(status)_" }
                         default:
                             break
                         }
                     }
-                    let final = AIJobRunner.cleaned(text)
+                    let final = ReplyFormatting.tidy(AIJobRunner.cleaned(text), question: question)
                     items[index].text = final
                     messages.append(ChatMessage(role: .assistant, text: final))
                     return

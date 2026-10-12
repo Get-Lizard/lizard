@@ -63,6 +63,10 @@
 
 > **Requires macOS 26 Tahoe on an Apple silicon Mac (M1 or later).** Homebrew won't install it on older systems.
 
+**Updates:** Lizard checks GitHub once a day and offers new versions in the menu bar and Settings › General.
+One click installs it: `brew upgrade` for Homebrew installs, otherwise it downloads the DMG, checks it is signed by
+Lizard's developer and notarized by Apple, swaps the app and restarts. Or run `brew upgrade --cask lizard` yourself.
+
 ```sh
 brew install --cask get-lizard/tap/lizard
 brew install node        # for extensions
