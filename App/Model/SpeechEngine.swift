@@ -52,15 +52,47 @@ final class SpeechEngine {
         }
     }
 
-    func start(locale: Locale = .current) async throws {
-        guard await Self.requestMicrophone() else { throw EngineError.microphoneDenied }
-        var supported = await DictationTranscriber.supportedLocale(equivalentTo: locale)
+    /// A transcriber + analyzer ready to go: building and preparing one is the slow part of
+    /// starting, so the next one is made ahead of time (at launch, then after every use).
+    private struct Prepared {
+        let transcriber: DictationTranscriber
+        let analyzer: SpeechAnalyzer
+        let format: AVAudioFormat
+    }
+
+    private var prepared: Prepared?
+    private var preparing: Task<Prepared?, Never>?
+    private var locale: Locale?
+
+    /// Warms up the next session in the background (no download, no prompts).
+    func prewarm() {
+        guard prepared == nil, preparing == nil, AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else { return }
+        preparing = Task { [weak self] in
+            let ready = try? await self?.makePrepared(download: false)
+            self?.prepared = ready
+            self?.preparing = nil
+            return ready
+        }
+    }
+
+    private func supportedLocale() async throws -> Locale {
+        if let locale { return locale }
+        var supported = await DictationTranscriber.supportedLocale(equivalentTo: .current)
         if supported == nil { supported = await DictationTranscriber.supportedLocale(equivalentTo: Locale(identifier: "en-US")) }
         guard let supported else { throw EngineError.unsupportedLanguage }
+        locale = supported
+        return supported
+    }
 
-        let transcriber = DictationTranscriber(locale: supported, preset: .progressiveShortDictation)
-        // First use per language: macOS downloads the speech model once.
+    private func makePrepared(download: Bool) async throws -> Prepared? {
+        let locale = try await supportedLocale()
+        // Settle words every second or two (live typing), keep the in-progress words for the pill.
+        let transcriber = DictationTranscriber(
+            locale: locale, contentHints: [], transcriptionOptions: [.punctuation],
+            reportingOptions: [.volatileResults, .frequentFinalization], attributeOptions: [])
         if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+            guard download else { return nil }
+            // First use per language: macOS downloads the speech model once.
             let progress = request.progress
             let report = onPreparing
             let watcher = Task { @MainActor in
@@ -72,22 +104,35 @@ final class SpeechEngine {
             try await request.downloadAndInstall()
             watcher.cancel()
         }
-
-        let analyzer = SpeechAnalyzer(modules: [transcriber])
-        self.analyzer = analyzer
-        let inputNode = audio.inputNode
-        let micFormat = inputNode.outputFormat(forBus: 0)
+        let micFormat = audio.inputNode.outputFormat(forBus: 0)
         guard micFormat.channelCount > 0 else { throw EngineError.noInput }
         guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber], considering: micFormat) else {
             throw EngineError.unsupportedLanguage
         }
+        let analyzer = SpeechAnalyzer(modules: [transcriber])
         try await analyzer.prepareToAnalyze(in: format, withProgressReadyHandler: nil)
+        return Prepared(transcriber: transcriber, analyzer: analyzer, format: format)
+    }
 
+    func start() async throws {
+        guard await Self.requestMicrophone() else { throw EngineError.microphoneDenied }
+        var ready = prepared
+        prepared = nil
+        if ready == nil, let warming = preparing { ready = await warming.value; prepared = nil }
+        if ready == nil { ready = try await makePrepared(download: true) }
+        guard let ready else { throw EngineError.unsupportedLanguage }
+        analyzer = ready.analyzer
+
+        // Microphone first: buffers queue in the stream while the analyzer starts, so the
+        // first words are never lost.
+        let inputNode = audio.inputNode
+        let micFormat = inputNode.outputFormat(forBus: 0)
+        guard micFormat.channelCount > 0 else { throw EngineError.noInput }
         let (stream, continuation) = AsyncStream<AnalyzerInput>.makeStream()
         input = continuation
         let (levels, levelSink) = AsyncStream<Float>.makeStream(bufferingPolicy: .bufferingNewest(4))
         levelContinuation = levelSink
-        Self.installTap(on: inputNode, format: micFormat, converter: BufferConverter(from: micFormat, to: format), audio: continuation, levels: levelSink)
+        Self.installTap(on: inputNode, format: micFormat, converter: BufferConverter(from: micFormat, to: ready.format), audio: continuation, levels: levelSink)
         let levelHandler = onLevel
         levelTask = Task { @MainActor in
             for await level in levels { levelHandler?(level) }
@@ -96,6 +141,7 @@ final class SpeechEngine {
         try audio.start()
 
         let textHandler = onText
+        let transcriber = ready.transcriber
         resultsTask = Task { @MainActor in
             do {
                 for try await result in transcriber.results {
@@ -105,7 +151,7 @@ final class SpeechEngine {
                 }
             } catch {}
         }
-        try await analyzer.start(inputSequence: stream)
+        try await ready.analyzer.start(inputSequence: stream)
     }
 
     /// Stops listening and waits for the last words to be finalized.
@@ -114,6 +160,7 @@ final class SpeechEngine {
         try? await analyzer?.finalizeAndFinishThroughEndOfInput()
         _ = await resultsTask?.value
         analyzer = nil
+        prewarm()
     }
 
     func cancel() async {
@@ -121,6 +168,7 @@ final class SpeechEngine {
         await analyzer?.cancelAndFinishNow()
         resultsTask?.cancel()
         analyzer = nil
+        prewarm()
     }
 
     private func stopAudio() {

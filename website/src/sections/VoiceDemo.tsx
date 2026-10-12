@@ -31,12 +31,16 @@ export function VoiceDemo() {
     const words = current.said.split(" ");
     let i = 0;
     const timers: number[] = [];
+    const finalWords = current.typed.split(" ");
     const listen = window.setInterval(() => {
       i += 1;
       setHeard(words.slice(0, i).join(" "));
+      // Live typing: phrases land in the app while you're still talking (a few words behind).
+      const settled = Math.max(0, Math.round(((i - 3) / words.length) * finalWords.length));
+      setTyped(finalWords.slice(0, settled).join(" "));
       if (i >= words.length) {
         window.clearInterval(listen);
-        timers.push(window.setTimeout(() => { setHolding(false); setTyped(current.typed); }, 600));
+        timers.push(window.setTimeout(() => { setHolding(false); setTyped(current.typed); }, 450));
         timers.push(window.setTimeout(() => setScene((s) => (s + 1) % scenes.length), 4200));
       }
     }, 190);
@@ -53,7 +57,7 @@ export function VoiceDemo() {
         <div className="mx-auto max-w-[720px] text-center">
           <h2 className="text-4xl font-semibold leading-[1.05] tracking-[-0.03em] md:text-6xl">Talk. It types.</h2>
           <p className="mx-auto mt-5 max-w-[54ch] text-[17px] leading-relaxed text-muted">
-            Hold <span className="kbd">⌃</span> <span className="kbd">⌥</span> <span className="kbd">V</span> in any app, say it, let go. Lizard writes it where your cursor is, without the "um"s, tidied by Apple Intelligence. Search Lizard or ask its AI the same way. All on your Mac.
+            Hold <span className="kbd">⌃</span> <span className="kbd">⌥</span> <span className="kbd">V</span> in any app and talk. Your words are typed where your cursor is while you speak, punctuated and without the "um"s. Search Lizard or ask its AI the same way. All on your Mac.
           </p>
         </div>
 
@@ -61,9 +65,7 @@ export function VoiceDemo() {
           <div className="overflow-hidden rounded-[22px] border border-line bg-raised shadow-[0_30px_80px_-30px_rgb(var(--shadow)/0.7)]">
             <div className="border-b border-line px-6 py-3.5 text-[13px] text-faint">Typing in {current.app}</div>
             <div className="min-h-[120px] p-7 text-[19px] leading-relaxed md:text-[21px]">
-              <motion.span key={`${scene}-${typed}`} initial={typed && !reduce ? { opacity: 0, filter: "blur(6px)" } : false} animate={{ opacity: 1, filter: "blur(0px)" }} transition={{ duration: 0.5 }}>
-                {typed}
-              </motion.span>
+              <span>{typed}</span>
               {!reduce && <span className="caret ml-0.5" aria-hidden />}
             </div>
           </div>
@@ -79,11 +81,11 @@ export function VoiceDemo() {
             <span className="min-w-0 flex-1 truncate text-[15px] font-medium [direction:rtl] text-left">
               <span className="[direction:ltr] [unicode-bidi:plaintext]">{reduce ? current.said : heard || "Listening…"}</span>
             </span>
-            <span className="shrink-0 text-[11.5px] text-white/50">{holding ? "release to type · esc" : "typed"}</span>
+            <span className="shrink-0 text-[11.5px] text-white/50">{holding ? "typing as you talk" : "done"}</span>
           </motion.div>
 
           <div className="mt-10 grid gap-4 text-center text-[14px] text-muted sm:grid-cols-3">
-            <p><span className="font-semibold text-ink">Hold</span> to talk, release to type</p>
+            <p><span className="font-semibold text-ink">Instant</span>: typed while you talk</p>
             <p><span className="font-semibold text-ink">Tap</span> for hands-free, pause to finish</p>
             <p><span className="font-semibold text-ink">Private</span>: Apple's on-device speech engine</p>
           </div>

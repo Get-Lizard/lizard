@@ -3,7 +3,7 @@ import { Microphone, Sparkle, ClipboardText, ListChecks, Camera, ArrowsLeftRight
 
 const shortcuts = [
   { keys: ["⇥"], label: "Ask AI about what you typed", icon: Sparkle },
-  { keys: ["⌃", "⌥", "V"], label: "Hold to talk, release to type", icon: Microphone },
+  { keys: ["⌃", "⌥", "V"], label: "Hold and talk: typed as you speak", icon: Microphone },
   { keys: ["⌥", "⇧", "V"], label: "Clipboard history", icon: ClipboardText },
   { keys: ["⌥", "⇧", "W"], label: "Log what you finished, now or earlier", icon: ListChecks },
   { keys: ["⌃", "⇧", "S"], label: "Capture and file a screenshot", icon: Camera },

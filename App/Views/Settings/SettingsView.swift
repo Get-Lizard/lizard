@@ -83,7 +83,7 @@ private struct GeneralSettings: View {
                     .onChange(of: resume) { _, on in Preferences.resumeLauncher = on }
                 Toggle("Tidy voice typing with Apple Intelligence", isOn: $polishVoice)
                     .onChange(of: polishVoice) { _, on in VoiceTypist.polish = on }
-                Text("Hold \(voiceShortcutText) anywhere and talk; release to type. Longer dictation into other apps gets punctuation and slips fixed on device. Searches in Lizard are never rewritten.")
+                Text("Hold \(voiceShortcutText) anywhere and talk: words are typed as you speak. Turn this on to have Apple Intelligence fix slips and punctuation first; then the text appears when you finish.")
                     .font(.caption).foregroundStyle(.secondary)
                 Toggle("Expand snippet keywords as I type", isOn: $expandSnippets)
                     .onChange(of: expandSnippets) { _, on in

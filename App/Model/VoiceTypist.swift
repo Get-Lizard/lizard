@@ -23,7 +23,13 @@ final class VoiceTypist {
     private(set) var handsFree = false
 
     @ObservationIgnored private weak var app: AppModel?
-    @ObservationIgnored private var engine: SpeechEngine?
+    /// One engine for the app's lifetime: it keeps the next session prepared, so starting is instant.
+    @ObservationIgnored private let engine = SpeechEngine()
+    /// What this session has typed so far (spacing/capitals for the next phrase).
+    @ObservationIgnored private var committed = ""
+    /// Live typing: phrases go in as they're recognized. Off when tidying with Apple Intelligence,
+    /// which needs the whole text at the end.
+    @ObservationIgnored private var live = true
     @ObservationIgnored private var pressedAt = Date.distantPast
     @ObservationIgnored private var targetApp: NSRunningApplication?
     @ObservationIgnored private var lastVoice = Date.now
@@ -31,15 +37,51 @@ final class VoiceTypist {
     @ObservationIgnored private var escMonitors: [Any] = []
     @ObservationIgnored private var pill: NSPanel?
 
-    static let polishKey = "Lizard.VoicePolish"
-    /// Tidy longer dictation with Apple Intelligence before typing it into other apps.
+    static let polishKey = "Lizard.VoicePolish2"
+    /// Tidy dictation with Apple Intelligence (types when you finish instead of as you speak).
     static var polish: Bool {
-        get { UserDefaults.standard.object(forKey: polishKey) as? Bool ?? true }
+        get { UserDefaults.standard.object(forKey: polishKey) as? Bool ?? false }
         set { UserDefaults.standard.set(newValue, forKey: polishKey) }
     }
 
     init(app: AppModel) {
         self.app = app
+        engine.onText = { [weak self] text, isFinal in self?.heard(text, isFinal: isFinal) }
+        engine.onLevel = { [weak self] level in self?.level(level) }
+        engine.onPreparing = { [weak self] fraction in self?.phase = .preparing(fraction) }
+        Task {
+            try? await Task.sleep(for: .seconds(4))
+            engine.prewarm()
+        }
+    }
+
+    private func heard(_ text: String, isFinal: Bool) {
+        transcript.update(text, isFinal: isFinal)
+        lastVoice = .now
+        guard isFinal, live else { return }
+        emit(text)
+    }
+
+    private func level(_ level: Float) {
+        levels.removeFirst()
+        levels.append(level)
+        if level > 0.35 { lastVoice = .now }
+    }
+
+    /// Types one recognized phrase right away.
+    private func emit(_ phrase: String) {
+        switch target {
+        case .launcher:
+            app?.insertIntoLauncher { before, isSearch in
+                let text = isSearch ? DictationText.forSearch(phrase) : DictationText.clean(phrase)
+                return DictationText.insertion(text, after: before)
+            }
+        case .app:
+            let text = DictationText.insertion(DictationText.clean(phrase), after: committed)
+            guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+            committed += text
+            KeyTyper.type(text)
+        }
     }
 
     var isActive: Bool {
@@ -90,25 +132,14 @@ final class VoiceTypist {
         target = app.isLauncherVisible && app.isLauncherKey ? .launcher : .app
         targetApp = target == .app ? NSWorkspace.shared.frontmostApplication : nil
         transcript = DictationText()
+        committed = ""
+        live = !Self.polish || target == .launcher
         levels = Array(repeating: 0, count: levels.count)
         lastVoice = .now
         phase = .listening
         showPill()
         installEscape()
 
-        let engine = SpeechEngine()
-        self.engine = engine
-        engine.onText = { [weak self] text, isFinal in
-            self?.transcript.update(text, isFinal: isFinal)
-            self?.lastVoice = .now
-        }
-        engine.onLevel = { [weak self] level in
-            guard let self else { return }
-            levels.removeFirst()
-            levels.append(level)
-            if level > 0.35 { lastVoice = .now }
-        }
-        engine.onPreparing = { [weak self] fraction in self?.phase = .preparing(fraction) }
         Task {
             do {
                 try await engine.start()
@@ -137,11 +168,10 @@ final class VoiceTypist {
         guard phase == .listening || isPreparing else { return }
         phase = .finishing
         silenceWatch?.cancel()
-        await engine?.finish()
-        engine = nil
+        await engine.finish()  // the last phrases arrive (and are typed) before this returns
         removeEscape()
         let said = transcript.current
-        guard !said.trimmingCharacters(in: .whitespaces).isEmpty else { return close() }
+        guard !live, !said.trimmingCharacters(in: .whitespaces).isEmpty else { return close() }
         switch target {
         case .launcher:
             close()
@@ -151,20 +181,16 @@ final class VoiceTypist {
             }
         case .app:
             var text = DictationText.clean(said)
-            if Self.polish, text.split(separator: " ").count >= 6 {
-                text = await polished(text)
-            }
+            if text.split(separator: " ").count >= 4 { text = await polished(text) }
             close()
-            type(text)
+            KeyTyper.type(text)
         }
     }
 
     func cancel() {
         silenceWatch?.cancel()
         removeEscape()
-        let engine = engine
-        self.engine = nil
-        Task { await engine?.cancel() }
+        Task { await engine.cancel() }
         close()
     }
 
@@ -185,8 +211,7 @@ final class VoiceTypist {
     }
 
     private func fail(_ message: String) async {
-        await engine?.cancel()
-        engine = nil
+        await engine.cancel()
         removeEscape()
         phase = .failed(message)
         try? await Task.sleep(for: .seconds(3.5))
@@ -197,24 +222,6 @@ final class VoiceTypist {
         phase = .idle
         handsFree = false
         pill?.orderOut(nil)
-    }
-
-    /// Pastes into the app that was in front, then puts the clipboard back.
-    private func type(_ text: String) {
-        let saved = NSPasteboard.general.string(forType: .string)
-        AutoPaste.copy(text: text)
-        app?.markOwnPasteboardWrite()
-        guard AutoPaste.paste(into: targetApp) else {
-            app?.showHUD("Copied. Allow Lizard under Accessibility to type it for you.")
-            return
-        }
-        Task {
-            try? await Task.sleep(for: .milliseconds(500))
-            if let saved {
-                AutoPaste.copy(text: saved)
-                app?.markOwnPasteboardWrite()
-            }
-        }
     }
 
     // MARK: Esc
@@ -317,8 +324,8 @@ struct VoicePill: View {
 
     private var hint: String {
         switch voice.phase {
-        case .finishing: voice.target == .app ? "Typing…" : "Done"
-        case .listening: voice.handsFree ? "pause or \(voiceShortcutText) to finish · esc" : "release to type · esc"
+        case .finishing: "Finishing…"
+        case .listening: voice.handsFree ? "typing as you talk · pause to stop" : "typing as you talk · release to stop"
         default: ""
         }
     }
@@ -337,5 +344,28 @@ private struct Waveform: View {
         }
         .frame(height: 30)
         .animation(.easeOut(duration: 0.08), value: levels)
+    }
+}
+
+/// Types text into whatever app has focus, as keystrokes (no clipboard involved), so phrases
+/// can go in live while you're still talking. Needs Accessibility, like auto-paste.
+enum KeyTyper {
+    static func type(_ text: String) {
+        let source = CGEventSource(stateID: .combinedSessionState)
+        let units = Array(text.utf16)
+        var index = 0
+        while index < units.count {
+            // Events carry at most 20 UTF-16 units; don't split a surrogate pair.
+            var end = min(index + 20, units.count)
+            if end < units.count, UTF16.isLeadSurrogate(units[end - 1]) { end -= 1 }
+            var chunk = Array(units[index..<end])
+            for keyDown in [true, false] {
+                let event = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: keyDown)
+                event?.flags = []
+                event?.keyboardSetUnicodeString(stringLength: chunk.count, unicodeString: &chunk)
+                event?.post(tap: .cghidEventTap)
+            }
+            index = end
+        }
     }
 }
