@@ -214,6 +214,16 @@ A two-second habit for remembering what you did.
   self-review: Summary, Key achievements, Projects, Collaboration & leadership, Growth, Next period. It only uses what
   the log says; long periods are sampled evenly so early months aren't dropped.
 
+### Voice typing
+
+- **Hold ⌃⌥V and talk** in any app: phrases are typed where your cursor is while you speak (keystrokes, no
+  clipboard). Tap it instead for hands-free; a pause finishes. Esc stops.
+- In Lizard it types into Lizard's own field: search, ask the AI or dictate a note by voice. A 🎙 capsule in the
+  search bar and the chat box starts it too.
+- Apple's on-device dictation (SpeechAnalyzer), with punctuation and fillers ("um", "uh") removed. Optional
+  Apple Intelligence tidy-up in Settings › General (then text appears when you finish).
+- Needs the microphone permission (asked the first time) and Accessibility (to type into other apps).
+
 ### Snippets
 
 Text you type often (replies, signatures, commands), Raycast-style.
