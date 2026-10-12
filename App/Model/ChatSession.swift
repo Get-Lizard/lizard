@@ -74,7 +74,7 @@ final class ChatSession: Identifiable {
     /// Streams the reply from the first provider that answers; a failure before any text moves
     /// on to the next provider (Cocoon's Agent fallback, minus tools).
     private func stream() {
-        let providers = ai.providers()
+        let providers = ai.chatProviders()
         guard !providers.isEmpty else {
             items.append(Item(kind: .error, text: "No AI is set up yet. Open Settings › AI to turn on Apple Intelligence, download a local model, or connect a cloud provider."))
             return

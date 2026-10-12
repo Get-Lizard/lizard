@@ -51,6 +51,14 @@ final class AIService {
         return settings.makeProviders(mlx: mlx, key: { Keychain.cachedValue($0) ?? nil })
     }
 
+    /// Chat: your connected cloud AI first, else Apple Intelligence, then the local model.
+    func chatProviders() -> [any AIProvider] {
+        let mlx: (any AIProvider)? = isLocalModelDownloaded ? MLXProvider(modelID: settings.mlxModelID) : nil
+        return settings.makeProviders(mlx: mlx, key: { Keychain.cachedValue($0) ?? nil }, order: settings.chatOrder)
+    }
+
+    var chatProviderName: String { chatProviders().first?.displayName ?? "No AI set up" }
+
     var hasAnyProvider: Bool { !providers().isEmpty }
 
     /// Short label of what will answer, for the chat header.

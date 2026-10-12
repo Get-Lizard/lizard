@@ -6,13 +6,140 @@ import SwiftUI
 /// Scroll handling follows Cocoon's ChatPane: a plain (non-lazy) stack anchored to the bottom.
 struct ChatView: View {
     @Environment(AppModel.self) private var app
-    let session: ChatSession
+    /// The open conversation; the sidebar switches it without leaving the screen.
+    @State private var session: ChatSession
     var onBack: () -> Void
 
     @State private var draft = ""
+    @State private var history: [ChatSession.Saved] = []
+    @State private var showSidebar = true
     @FocusState private var focused: Bool
 
+    init(session: ChatSession, onBack: @escaping () -> Void) {
+        _session = State(initialValue: session)
+        self.onBack = onBack
+    }
+
     var body: some View {
+        HStack(spacing: 0) {
+            if showSidebar {
+                sidebar.frame(width: 220)
+                Divider().opacity(0.5)
+            }
+            conversation
+        }
+        .task { reloadHistory() }
+        .onChange(of: session.isStreaming) { _, streaming in if !streaming { reloadHistory() } }
+    }
+
+    // MARK: Sidebar
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button(action: newChat) {
+                Label("New chat", systemImage: "square.and.pencil")
+                    .font(.callout.weight(.semibold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 10).padding(.vertical, 8)
+                    .background(Brand.moss.opacity(0.14), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut("n", modifiers: .command)
+            .help("New chat (⌘N)")
+            .padding(10)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 2) {
+                    ForEach(groupedHistory, id: \.title) { group in
+                        Text(group.title)
+                            .font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
+                            .textCase(.uppercase)
+                            .padding(.horizontal, 10).padding(.top, 10).padding(.bottom, 3)
+                        ForEach(group.chats, id: \.id) { chat in
+                            historyRow(chat)
+                        }
+                    }
+                    if history.isEmpty {
+                        Text("Your conversations appear here.")
+                            .font(.caption).foregroundStyle(.tertiary).padding(10)
+                    }
+                }
+                .padding(.horizontal, 6)
+                .padding(.bottom, 10)
+            }
+        }
+        .background(Color.primary.opacity(0.025))
+    }
+
+    private func historyRow(_ chat: ChatSession.Saved) -> some View {
+        let selected = chat.id == session.id
+        return Button { open(chat) } label: {
+            Text(chat.title)
+                .font(.callout)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10).padding(.vertical, 7)
+                .background(selected ? Color.primary.opacity(0.1) : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button("Delete", role: .destructive) { delete(chat) }
+        }
+    }
+
+    private struct HistoryGroup {
+        let title: String
+        let chats: [ChatSession.Saved]
+    }
+
+    private var groupedHistory: [HistoryGroup] {
+        let calendar = Calendar.current
+        func title(_ date: Date) -> String {
+            if calendar.isDateInToday(date) { return "Today" }
+            if calendar.isDateInYesterday(date) { return "Yesterday" }
+            if let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: .now)).day, days < 7 { return "Previous 7 days" }
+            return date.formatted(.dateTime.month(.wide).year())
+        }
+        var groups: [HistoryGroup] = []
+        for chat in history {
+            let name = title(chat.created)
+            if let index = groups.firstIndex(where: { $0.title == name }) {
+                groups[index] = HistoryGroup(title: name, chats: groups[index].chats + [chat])
+            } else {
+                groups.append(HistoryGroup(title: name, chats: [chat]))
+            }
+        }
+        return groups
+    }
+
+    private func reloadHistory() {
+        history = ChatStore.loadAll()
+    }
+
+    private func newChat() {
+        session.cancel()
+        session = ChatSession(ai: app.ai)
+        draft = ""
+        focused = true
+    }
+
+    private func open(_ chat: ChatSession.Saved) {
+        guard chat.id != session.id else { return }
+        session.cancel()
+        session = ChatSession(ai: app.ai, saved: chat)
+        focused = true
+    }
+
+    private func delete(_ chat: ChatSession.Saved) {
+        ChatStore.delete(chat.id)
+        if chat.id == session.id { newChat() }
+        reloadHistory()
+    }
+
+    // MARK: Conversation
+
+    private var conversation: some View {
         VStack(spacing: 0) {
             header
             Divider().opacity(0.5)
@@ -43,25 +170,22 @@ struct ChatView: View {
             Button(action: onBack) { Image(systemName: "chevron.left") }
                 .buttonStyle(.borderless)
                 .help("Back (Esc)")
+            Button { withAnimation(.snappy) { showSidebar.toggle() } } label: { Image(systemName: "sidebar.left") }
+                .buttonStyle(.borderless)
+                .keyboardShortcut("s", modifiers: [.command, .shift])
+                .help("Show or hide conversations (⇧⌘S)")
             Text(session.items.isEmpty ? "New chat" : session.title)
                 .font(.headline).lineLimit(1)
             Spacer()
             HStack(spacing: 6) {
                 Circle().fill(Brand.moss).frame(width: 6, height: 6)
-                Text(app.ai.activeProviderName).lineLimit(1)
+                Text(app.ai.chatProviderName).lineLimit(1)
             }
             .font(.caption.weight(.medium))
             .foregroundStyle(.secondary)
             .padding(.horizontal, 10).padding(.vertical, 5)
             .background(Color.primary.opacity(0.06), in: Capsule())
-            .help("Answers come from \(app.ai.activeProviderName). Change it in Settings › AI.")
-            Button { app.launcher.push(.chat(ChatSession(ai: app.ai))) } label: { Image(systemName: "square.and.pencil") }
-                .buttonStyle(.borderless)
-                .keyboardShortcut("n", modifiers: .command)
-                .help("New chat (⌘N)")
-            Button { app.launcher.push(.chats) } label: { Image(systemName: "clock.arrow.circlepath") }
-                .buttonStyle(.borderless)
-                .help("Chat history")
+            .help("Answers come from \(app.ai.chatProviderName): a connected cloud AI if you have one, otherwise Apple Intelligence. Change it in Settings › AI.")
         }
         .padding(.horizontal, 14)
         .frame(height: 46)
@@ -90,7 +214,7 @@ struct ChatView: View {
                 .padding(.top, 30)
             Text("How can I help?")
                 .font(.system(size: 26, weight: .semibold, design: .rounded))
-            Text("Private by default: answered by \(app.ai.activeProviderName).")
+            Text("Answered by \(app.ai.chatProviderName).")
                 .font(.callout).foregroundStyle(.secondary)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 ForEach(suggestions) { suggestion in

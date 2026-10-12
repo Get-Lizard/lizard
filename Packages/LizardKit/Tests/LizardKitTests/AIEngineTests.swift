@@ -606,3 +606,22 @@ private struct ScriptedProvider: AIProvider {
         #expect(jobs[4].title == "Rewritten (formal)")
     }
 }
+
+@Suite struct ChatOrderTests {
+    @Test func appleFirstWithoutCloud() {
+        var settings = ProviderSettings()
+        settings.cloudEnabled = false
+        #expect(settings.chatOrder == [.apple, .mlx])
+    }
+
+    @Test func connectedCloudFirst() {
+        var settings = ProviderSettings()
+        settings.cloudEnabled = true
+        settings.main = .anthropic
+        #expect(settings.chatOrder.first == .anthropic)
+        #expect(settings.chatOrder.suffix(2) == [.apple, .mlx])
+        // A cloud without a key is skipped, leaving Apple Intelligence to answer.
+        let providers = settings.makeProviders(mlx: nil, key: { _ in nil }, order: settings.chatOrder)
+        #expect(providers.allSatisfy { $0.id == "apple" })
+    }
+}

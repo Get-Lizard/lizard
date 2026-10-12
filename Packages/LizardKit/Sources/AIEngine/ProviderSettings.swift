@@ -225,8 +225,17 @@ extension ProviderSettings {
     /// pass it via `mlx`. Providers without credentials are skipped.
     /// - Parameter key: how to look up API keys (the app passes a cache-only lookup so it never
     ///   blocks the main thread on the Keychain).
-    public func makeProviders(mlx: (any AIProvider)?, key: (String) -> String? = Keychain.get) -> [any AIProvider] {
-        activeOrder.compactMap { kind -> (any AIProvider)? in
+    /// For chat: a connected cloud AI first (when cloud is allowed), then Apple Intelligence, then
+    /// the local model. Clouds without a key are skipped, so with none it's Apple Intelligence.
+    public var chatOrder: [ProviderKind] {
+        let clouds: [ProviderKind] = cloudEnabled ? [main].filter(\.isCloud) + [.openRouter, .openCode, .anthropic, .openAI] : []
+        var order: [ProviderKind] = []
+        for kind in clouds + [.apple, .mlx] where !order.contains(kind) { order.append(kind) }
+        return order
+    }
+
+    public func makeProviders(mlx: (any AIProvider)?, key: (String) -> String? = Keychain.get, order: [ProviderKind]? = nil) -> [any AIProvider] {
+        (order ?? activeOrder).compactMap { kind -> (any AIProvider)? in
             switch kind {
             case .apple:
                 return AppleIntelligence.isAvailable ? AppleFMProvider() : nil

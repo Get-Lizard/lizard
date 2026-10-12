@@ -60,7 +60,7 @@ final class LauncherModel {
     /// Roomy screens (notes, screenshots…) get a bigger panel; search stays compact.
     var isWorkspace: Bool {
         switch route {
-        case .notes, .screenshots, .knowledge, .clipboard, .processes, .ports, .devTools, .translate, .snippets: true
+        case .notes, .screenshots, .knowledge, .clipboard, .processes, .ports, .devTools, .translate, .snippets, .chat, .chats: true
         default: false
         }
     }
