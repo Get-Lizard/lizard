@@ -6,6 +6,7 @@ const frames = [
   { src: "./shots/home.webp", query: "", label: "⌘ Space", alt: "Lizard's home: search field, quick tiles and recent commands" },
   { src: "./shots/calc.webp", query: "15% of 2340", label: "Calculator", alt: "Typing 15% of 2340 shows a calculator card: 351, three hundred fifty-one" },
   { src: "./shots/translate.webp", query: "good morning, how are you? in spanish", label: "Translate", alt: "Typing a sentence in spanish shows the translation instantly, on device" },
+  { src: "./shots/chat.webp", query: "tips for a clear pull request", label: "Ask AI", alt: "AI chat with conversation history and a formatted answer" },
   { src: "./shots/search.webp", query: "snip", label: "Commands", alt: "Typing snip lists Create, Import, Export and Search Snippets" },
   { src: "./shots/quicklink.webp", query: "linear.app/team/search", label: "Quicklinks", alt: "The quicklink editor with Open With set to Google Chrome" },
 ];

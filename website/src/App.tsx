@@ -15,6 +15,7 @@ import { Showcase } from "./sections/Showcase";
 import { SnippetsDemo } from "./sections/SnippetsDemo";
 import { FirstRun } from "./sections/FirstRun";
 import { VoiceDemo } from "./sections/VoiceDemo";
+import { JustWorks } from "./sections/JustWorks";
 
 export function App() {
   return (
@@ -32,6 +33,7 @@ export function App() {
         <WorkLog />
         <GitHub />
         <FirstRun />
+        <JustWorks />
         <Privacy />
         <Extensions />
         <Travel />

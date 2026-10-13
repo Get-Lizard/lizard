@@ -1,4 +1,4 @@
-import { Calculator, ChatsCircle, LinkSimple, ListChecks, NotePencil, Quotes } from "@phosphor-icons/react";
+import { Calculator, ChatCircleDots, ChatsCircle, LinkSimple, ListChecks, NotePencil, Quotes } from "@phosphor-icons/react";
 import { AnimatePresence, motion, useInView, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState, type ComponentType } from "react";
 
@@ -6,6 +6,7 @@ type Item = { icon: ComponentType<{ size?: number; weight?: "duotone" }>; title:
 
 const items: Item[] = [
   { icon: Calculator, title: "Math, answered as you type", body: "Percentages, units, powers. The result is a card you can copy with Return, even spelled out.", type: "15% of 2340", src: "./shots/calc.webp", alt: "Calculator card: 15% of 2340 is 351" },
+  { icon: ChatCircleDots, title: "An AI chat that remembers", body: "Every conversation kept in a sidebar, a new one with ⌘N. Answers come from your own cloud AI when you've connected one, otherwise Apple Intelligence on your Mac.", type: "⇥ Tab to ask", src: "./shots/chat.webp", alt: "Lizard's AI chat with a conversation sidebar and a formatted answer" },
   { icon: ChatsCircle, title: "Translate without opening anything", body: "Add “in spanish” to any sentence. Apple Translation answers on device, and Apple Intelligence fills in when a language isn't downloaded.", type: "good morning in spanish", src: "./shots/translate.webp", alt: "Translation card from English to Spanish" },
   { icon: LinkSimple, title: "Quicklinks with your browser", body: "Paste a link and save it. Pick which browser opens it, give it a keyword, add {query} for searches.", type: "linear.app/team", src: "./shots/quicklink.webp", alt: "Quicklink editor with Open With and Icon pickers" },
   { icon: Quotes, title: "Snippets that expand anywhere", body: "Type ;sig in any app and it becomes your signature. Raycast's placeholders work: {clipboard}, {date}, {cursor}.", type: ";sig", src: "./shots/snippet.webp", alt: "Snippet editor with a signature and a ;sig keyword" },
