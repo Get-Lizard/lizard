@@ -809,7 +809,7 @@ final class AppModel {
         rememberFrontApp()
         workLogContextApp = previousApp?.localizedName
         if workLogPanel == nil {
-            workLogPanel = FloatingPanelController(size: NSSize(width: 560, height: 152), hidesOnResign: !CommandLine.arguments.contains("--keep-open")) {
+            workLogPanel = FloatingPanelController(size: NSSize(width: 560, height: 168), hidesOnResign: !CommandLine.arguments.contains("--keep-open")) {
                 AnyView(WorkLogHUD().environment(self))
             }
         }
@@ -819,6 +819,10 @@ final class AppModel {
     func hideWorkLog() {
         workLogPanel?.hide()
         previousApp?.activate()
+    }
+
+    func resizeWorkLog(toHeight height: CGFloat) {
+        workLogPanel?.resize(to: NSSize(width: 560, height: height))
     }
 
     /// `date` nil means now; a back-dated entry isn't tagged with the app you're in today.

@@ -1,7 +1,8 @@
 import AIEngine
+import AppKit
 import SwiftUI
 
-/// ⌥⇧W: a small floating field. Type what you just did, press ↩, keep working. The entry is
+/// ⌥⇧W: a small floating field. Type what you just finished, press ⌘↩ or Save. The entry is
 /// stamped with the time and the app you were in, and appended to this month's Markdown log.
 /// The "when" row back-dates an entry: one click for the common cases, a day stepper and time
 /// field for anything else. Everything is inline (a popover would take focus and close the HUD).
@@ -11,7 +12,7 @@ struct WorkLogHUD: View {
     @State private var saved = false
     /// nil = now.
     @State private var when: Date?
-    @FocusState private var focused: Bool
+    @FocusState private var editorFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -29,16 +30,38 @@ struct WorkLogHUD: View {
                 Button("Review…") { app.openPerformanceReview() }
                     .buttonStyle(.link).font(.caption)
             }
-            TextField(when == nil ? "What did you just finish?" : "What did you do then?", text: $text, axis: .vertical)
-                .textFieldStyle(.plain)
-                .font(.system(size: 17))
-                .lineLimit(1...3)
-                .focused($focused)
-                .onSubmit(save)
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $text)
+                    .font(.system(size: 17))
+                    .scrollContentBackground(.hidden)
+                    .focused($editorFocused)
+                    .frame(height: Self.editorHeight(for: text))
+                    .onKeyPress(.return, phases: .down) { press in
+                        guard press.modifiers.contains(.command) else { return .ignored }
+                        save()
+                        return .handled
+                    }
+                if text.isEmpty {
+                    Text(when == nil ? "What did you just finish?" : "What did you do then?")
+                        .font(.system(size: 17))
+                        .foregroundStyle(.tertiary)
+                        .padding(.leading, 5)
+                        .padding(.top, 5)
+                        .allowsHitTesting(false)
+                }
+            }
+            .onChange(of: text) { _, text in
+                app.resizeWorkLog(toHeight: Self.panelHeight(for: text))
+            }
             whenRow
             HStack {
-                Text(footer).font(.caption).foregroundStyle(saved ? Brand.moss : .secondary)
+                Text(footer).font(.caption).foregroundStyle(saved ? Brand.moss : .secondary).lineLimit(1)
                 Spacer()
+                Button("Save", action: save)
+                    .buttonStyle(.borderedProminent)
+                    .tint(Brand.moss)
+                    .controlSize(.small)
+                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 Button("Open log") { app.openWorkLogFile() }.buttonStyle(.link).font(.caption)
             }
         }
@@ -47,7 +70,7 @@ struct WorkLogHUD: View {
         .launcherGlass()
         .frame(maxHeight: .infinity, alignment: .top)
         .onAppear {
-            focused = true
+            editorFocused = true
             saved = false
             when = CommandLine.arguments.contains("--worklog-earlier") ? Self.rounded(.now.addingTimeInterval(-26 * 3_600)) : nil
         }
@@ -114,7 +137,7 @@ struct WorkLogHUD: View {
 
     private func pick(_ date: Date) {
         withAnimation(.snappy) { when = min(date, .now) }
-        focused = true
+        editorFocused = true
     }
 
     private func shift(days: Int = 0, minutes: Int = 0) {
@@ -137,8 +160,8 @@ struct WorkLogHUD: View {
 
     private var footer: String {
         if saved { return "Saved ✓" }
-        guard let when else { return "↩ to save · esc to close · ⌘[ for an earlier day" }
-        return "↩ saves it to \(when.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))) at \(when.formatted(date: .omitted, time: .shortened)) · ⌥↑↓ 15 min · ⌘0 now"
+        guard let when else { return "⌘↩ save · ↩ new line · esc close · ⌘[ earlier day" }
+        return "⌘↩ save at \(when.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))) \(when.formatted(date: .omitted, time: .shortened)) · ↩ new line · ⌥↑↓ 15 min · ⌘0 now"
     }
 
     /// Down to the quarter hour, so picked times look like times people write.
@@ -151,6 +174,32 @@ struct WorkLogHUD: View {
         Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: .now)
     }
 
+    /// Estimate wrapped lines at the field's fixed width so the panel grows with the input.
+    private static func panelHeight(for text: String) -> CGFloat {
+        let lines = lineCount(for: text)
+        return 168 + CGFloat(lines - 1) * lineHeight
+    }
+
+    private static func editorHeight(for text: String) -> CGFloat {
+        34 + CGFloat(lineCount(for: text) - 1) * lineHeight
+    }
+
+    private static var lineHeight: CGFloat {
+        let font = NSFont.systemFont(ofSize: 17)
+        return font.ascender - font.descender + font.leading
+    }
+
+    private static func lineCount(for text: String) -> Int {
+        let font = NSFont.systemFont(ofSize: 17)
+        let bounds = (text as NSString).boundingRect(
+            with: NSSize(width: 518, height: CGFloat.greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [.font: font])
+        let wrappedLines = Int((bounds.height / lineHeight).rounded(.up))
+        let explicitLines = text.components(separatedBy: "\n").count
+        return min(14, max(1, max(wrappedLines, explicitLines)))
+    }
+
     // MARK: Save
 
     private func save() {
@@ -160,7 +209,7 @@ struct WorkLogHUD: View {
         text = ""
         withAnimation(.spring) { saved = true }
         Task {
-            try? await Task.sleep(for: .milliseconds(700))
+            try? await Task.sleep(for: .milliseconds(150))
             app.hideWorkLog()
         }
     }

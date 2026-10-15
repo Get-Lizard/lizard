@@ -143,6 +143,7 @@ final class FloatingPanelController<Content: View> {
     func resize(to newSize: NSSize, animated: Bool = true) {
         var frame = panel.frame
         guard frame.size != newSize else { return }
+        size = newSize
         let top = frame.maxY
         frame.origin.x = frame.midX - newSize.width / 2
         frame.size = newSize
