@@ -20,7 +20,8 @@ final class LauncherModel {
         case processes
         case quicklinks
         case quicklinkEditor(Quicklink, isNew: Bool)
-        case snippets
+        /// Search Snippets; `focus` selects one and asks for its arguments.
+        case snippets(focus: UUID? = nil)
         case snippetEditor(Snippet, isNew: Bool)
         case aiJob(AIJob)
         case knowledge(query: String, ask: Bool)

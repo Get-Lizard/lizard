@@ -9,12 +9,78 @@ public struct Snippet: Codable, Sendable, Hashable, Identifiable {
     public var text: String
     /// Typed anywhere (e.g. ";sig"), it's replaced by the snippet.
     public var keyword: String?
+    /// nil for snippets saved before these were kept (and for imports).
+    public var created: Date?
+    public var modified: Date?
 
-    public init(id: UUID = UUID(), name: String, text: String, keyword: String? = nil) {
+    public init(id: UUID = UUID(), name: String, text: String, keyword: String? = nil, created: Date? = nil, modified: Date? = nil) {
         self.id = id
         self.name = name
         self.text = text
         self.keyword = keyword
+        self.created = created
+        self.modified = modified
+    }
+
+    // MARK: Kinds
+
+    /// What the Search Snippets type filter sorts by.
+    public enum ContentType: String, CaseIterable, Sendable {
+        case text = "Text"
+        case link = "Link"
+        case dynamic = "Dynamic"
+        case arguments = "With Arguments"
+    }
+
+    /// The snippet's own kind: a single URL is a link; placeholders make it dynamic.
+    public var contentType: ContentType {
+        if !arguments.isEmpty { return .arguments }
+        if Self.placeholderMatches(in: text).isEmpty == false { return .dynamic }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.contains(where: \.isWhitespace), let url = URL(string: trimmed), url.scheme != nil, url.host() != nil { return .link }
+        return .text
+    }
+
+    // MARK: Arguments
+
+    /// A value asked for when the snippet is used: `{argument name="ticket" default="1" options="a, b"}`.
+    /// The same name used twice is asked once; each unnamed `{argument}` is its own.
+    public struct Argument: Sendable, Hashable, Identifiable {
+        /// What `expand(arguments:)` is keyed by: the name, or "#1", "#2"… for unnamed ones.
+        public var key: String
+        public var name: String?
+        public var defaultValue: String?
+        public var options: [String]
+
+        public var id: String { key }
+        public var label: String { name ?? "Argument" }
+    }
+
+    /// The snippet's arguments in the order they first appear.
+    public var arguments: [Argument] { Self.arguments(in: text) }
+
+    public static func arguments(in template: String) -> [Argument] {
+        let source = template as NSString
+        var result: [Argument] = []
+        var unnamed = 0
+        for match in placeholderMatches(in: template) where source.substring(with: match.range(at: 1)).lowercased() == "argument" {
+            let argument = argument(from: parseAttributes(source.substring(with: match.range(at: 2))), unnamed: &unnamed)
+            if !result.contains(where: { $0.key == argument.key }) { result.append(argument) }
+        }
+        return result
+    }
+
+    private static func argument(from attributes: [String: String], unnamed: inout Int) -> Argument {
+        let options = attributes["options"].map { $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } } ?? []
+        let name = attributes["name"].flatMap { $0.isEmpty ? nil : $0 }
+        let key: String
+        if let name {
+            key = name
+        } else {
+            unnamed += 1
+            key = "#\(unnamed)"
+        }
+        return Argument(key: key, name: name, defaultValue: attributes["default"] ?? options.first, options: options)
     }
 
     // MARK: Raycast files
@@ -46,10 +112,18 @@ public struct Snippet: Codable, Sendable, Hashable, Identifiable {
         public var text: String
         /// Characters from the end where the caret should land (`{cursor}`), nil for the end.
         public var cursorFromEnd: Int?
+        /// Where each argument's value landed (character offsets in `text`), for previews.
+        public var argumentRanges: [ArgumentRange] = []
+    }
+
+    public struct ArgumentRange: Sendable, Equatable {
+        public var key: String
+        public var range: Range<Int>
     }
 
     /// The placeholders a snippet can use, for editors' insert menus (Raycast's syntax).
     public static let placeholders: [(token: String, meaning: String)] = [
+        (#"{argument name="ticket"}"#, "asked for when you use it; add default=\"…\" or options=\"a, b\""),
         ("{clipboard}", "the text you copied"),
         ("{clipboard offset=1}", "the copy before that (from clipboard history)"),
         ("{selection}", "text selected in the app you're in"),
@@ -65,7 +139,8 @@ public struct Snippet: Codable, Sendable, Hashable, Identifiable {
         ("{clipboard | trim | uppercase}", "modifiers: uppercase, lowercase, trim, percent-encode, json-stringify, raw"),
     ]
 
-    /// Fills Raycast's dynamic placeholders: `{clipboard}` (`offset=N` reaches back through
+    /// Fills Raycast's dynamic placeholders: `{argument}` (from `arguments`, keyed by
+    /// `Argument.key`; missing ones use their default), `{clipboard}` (`offset=N` reaches back through
     /// clipboard history), `{selection}`, `{date}`/`{time}`/`{datetime}`/`{day}` with `format="…"`
     /// and `offset="+1d -2h"`, `{uuid}`, `{cursor}`, `{snippet name="…"}` (not recursive), each
     /// optionally followed by `| uppercase | lowercase | trim | percent-encode | json-stringify | raw`.
@@ -73,15 +148,15 @@ public struct Snippet: Codable, Sendable, Hashable, Identifiable {
     public static func expand(
         _ template: String, clipboard: String? = nil, selection: String? = nil, now: Date = .now,
         calendar: Calendar = .current, locale: Locale = .current, snippets: [Snippet] = [],
-        clipboardHistory: (Int) -> String? = { _ in nil }
+        clipboardHistory: (Int) -> String? = { _ in nil }, arguments: [String: String] = [:]
     ) -> Expansion {
-        let pattern = #"\{(clipboard|selection|date|time|datetime|day|uuid|cursor|snippet)((?:\s+[a-z]+=(?:"[^"]*"|[^\s|}"]+))*)\s*((?:\|\s*[a-z-]+\s*)*)\}"#
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return Expansion(text: template) }
         let source = template as NSString
         var output = ""
         var cursorIndex: Int?
+        var argumentRanges: [ArgumentRange] = []
+        var unnamed = 0
         var last = 0
-        for match in regex.matches(in: template, range: NSRange(location: 0, length: source.length)) {
+        for match in placeholderMatches(in: template) {
             output += source.substring(with: NSRange(location: last, length: match.range.location - last))
             last = match.range.location + match.range.length
             let name = source.substring(with: match.range(at: 1)).lowercased()
@@ -90,6 +165,12 @@ public struct Snippet: Codable, Sendable, Hashable, Identifiable {
                 .map { $0.trimmingCharacters(in: .whitespaces).lowercased() }.filter { !$0.isEmpty }
             let value: String
             switch name {
+            case "argument":
+                let argument = argument(from: attributes, unnamed: &unnamed)
+                let filled = apply(modifiers, to: arguments[argument.key] ?? argument.defaultValue ?? "")
+                argumentRanges.append(ArgumentRange(key: argument.key, range: output.count..<(output.count + filled.count)))
+                output += filled
+                continue
             case "clipboard":
                 let back = attributes["offset"].flatMap { Int($0) } ?? 0
                 value = back > 0 ? (clipboardHistory(back) ?? "") : (clipboard ?? "")
@@ -106,7 +187,7 @@ public struct Snippet: Codable, Sendable, Hashable, Identifiable {
                     continue
                 }
                 // One level only: the included snippet is expanded without other snippets.
-                value = expand(text, clipboard: clipboard, selection: selection, now: now, calendar: calendar, locale: locale, clipboardHistory: clipboardHistory).text
+                value = expand(text, clipboard: clipboard, selection: selection, now: now, calendar: calendar, locale: locale, clipboardHistory: clipboardHistory, arguments: arguments).text
             default:
                 let date = attributes["offset"].flatMap { offset($0, from: now, calendar: calendar) } ?? now
                 value = format(date, kind: name, custom: attributes["format"], calendar: calendar, locale: locale)
@@ -114,7 +195,13 @@ public struct Snippet: Codable, Sendable, Hashable, Identifiable {
             output += apply(modifiers, to: value)
         }
         output += source.substring(from: last)
-        return Expansion(text: output, cursorFromEnd: cursorIndex.map { output.count - $0 })
+        return Expansion(text: output, cursorFromEnd: cursorIndex.map { output.count - $0 }, argumentRanges: argumentRanges)
+    }
+
+    private static func placeholderMatches(in template: String) -> [NSTextCheckingResult] {
+        let pattern = #"\{(argument|clipboard|selection|date|time|datetime|day|uuid|cursor|snippet)((?:\s+[a-z]+=(?:"[^"]*"|[^\s|}"]+))*)\s*((?:\|\s*[a-z-]+\s*)*)\}"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return [] }
+        return regex.matches(in: template, range: NSRange(location: 0, length: (template as NSString).length))
     }
 
     static func apply(_ modifiers: [String], to value: String) -> String {
@@ -230,25 +317,49 @@ public struct SnippetKeywordMatcher: Sendable {
     }
 }
 
-/// Snippets saved as JSON in Application Support.
+/// How often a snippet was pasted or copied, and when last.
+public struct SnippetUsage: Codable, Sendable, Hashable {
+    public var count = 0
+    public var lastUsed: Date?
+}
+
+/// Snippets saved as JSON in Application Support. Usage lives in its own file so pasting a
+/// snippet doesn't count as editing it (iCloud sync compares the snippets file).
 public actor SnippetStore {
     private let url: URL
+    private let usageURL: URL
     public private(set) var snippets: [Snippet]
+    public private(set) var usage: [UUID: SnippetUsage]
 
     public init(url: URL = AppPaths.applicationSupport.appending(path: "snippets.json")) {
         self.url = url
+        usageURL = url.deletingLastPathComponent().appending(path: "snippet-usage.json")
         snippets = ResilientFile.read(url) { try JSONDecoder().decode([Snippet].self, from: $0) } ?? []
+        usage = ResilientFile.read(usageURL) { try JSONDecoder().decode([UUID: SnippetUsage].self, from: $0) } ?? [:]
     }
 
     public var modified: Date? { (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate }
 
-    public func save(_ snippet: Snippet) {
+    /// Saves an edit (or a new snippet), stamping when it was created and changed.
+    public func save(_ snippet: Snippet, now: Date = .now) {
+        var snippet = snippet
+        snippet.modified = now
         if let index = snippets.firstIndex(where: { $0.id == snippet.id }) {
+            snippet.created = snippet.created ?? snippets[index].created
             snippets[index] = snippet
         } else {
+            snippet.created = snippet.created ?? now
             snippets.append(snippet)
         }
         persist()
+    }
+
+    public func recordUse(_ id: UUID, now: Date = .now) {
+        var entry = usage[id] ?? SnippetUsage()
+        entry.count += 1
+        entry.lastUsed = now
+        usage[id] = entry
+        if let data = try? JSONEncoder().encode(usage) { try? ResilientFile.write(data, to: usageURL) }
     }
 
     public func delete(_ id: UUID) {

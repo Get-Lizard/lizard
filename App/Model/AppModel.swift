@@ -42,6 +42,8 @@ final class AppModel {
     /// Saved snippets (Create Snippet / Search Snippets; keywords expand anywhere).
     @ObservationIgnored let snippetStore = SnippetStore()
     private(set) var savedSnippets: [Snippet] = []
+    /// Times pasted/copied and when last, by snippet.
+    private(set) var snippetUsage: [UUID: SnippetUsage] = [:]
     @ObservationIgnored private(set) lazy var snippetExpander = SnippetExpander(app: self)
     @ObservationIgnored let frecency = Frecency()
     @ObservationIgnored private let indexer = AppIndexer()
@@ -93,6 +95,7 @@ final class AppModel {
     func snippetsChanged() {
         Task {
             savedSnippets = await snippetStore.snippets
+            snippetUsage = await snippetStore.usage
             snippetExpander.update(savedSnippets)
             launcher.refresh()
             sync.scheduleWrite()
@@ -100,20 +103,23 @@ final class AppModel {
     }
 
     /// Fills a snippet's placeholders with the clipboard (and its history, for `offset=N`), the
-    /// selection, the date, and other snippets.
-    func expandSnippet(_ snippet: Snippet, selection: String? = nil) async -> Snippet.Expansion {
+    /// selection, the date, other snippets, and the argument values you typed.
+    func expandSnippet(_ snippet: Snippet, selection: String? = nil, arguments: [String: String] = [:]) async -> Snippet.Expansion {
         let history = snippet.text.contains("offset=") ? await clipboardItems(matching: "").map(\.text) : []
         return Snippet.expand(
             snippet.text, clipboard: NSPasteboard.general.string(forType: .string), selection: selection,
-            snippets: savedSnippets, clipboardHistory: { history.indices.contains($0) ? history[$0] : nil })
+            snippets: savedSnippets, clipboardHistory: { history.indices.contains($0) ? history[$0] : nil }, arguments: arguments)
     }
 
     /// Pastes a snippet into the app you were in: placeholders filled, caret moved to `{cursor}`.
-    func pasteSnippet(_ snippet: Snippet) {
+    /// A snippet with arguments and no values yet opens Search Snippets on it to ask for them.
+    func pasteSnippet(_ snippet: Snippet, arguments: [String: String]? = nil) {
+        guard let arguments = arguments ?? (snippet.arguments.isEmpty ? [:] : nil) else { return askSnippetArguments(snippet) }
         let selection = selectedTextInPreviousApp()
         Task {
-            let expansion = await expandSnippet(snippet, selection: selection)
+            let expansion = await expandSnippet(snippet, selection: selection, arguments: arguments)
             pasteText(expansion.text)
+            await recordSnippetUse(snippet)
             if let back = expansion.cursorFromEnd, back > 0 {
                 try? await Task.sleep(for: .milliseconds(250))
                 SnippetExpander.press(kVK_LeftArrow, times: back)
@@ -121,8 +127,39 @@ final class AppModel {
         }
     }
 
-    func copySnippet(_ snippet: Snippet) {
-        Task { copyText(await expandSnippet(snippet).text) }
+    func copySnippet(_ snippet: Snippet, arguments: [String: String] = [:]) {
+        Task {
+            copyText(await expandSnippet(snippet, arguments: arguments).text)
+            await recordSnippetUse(snippet)
+        }
+    }
+
+    /// Shows Search Snippets on this snippet with its argument fields focused; ↩ pastes.
+    func askSnippetArguments(_ snippet: Snippet) {
+        if !isLauncherVisible { showLauncher() }
+        launcher.push(.snippets(focus: snippet.id))
+    }
+
+    func recordSnippetUse(_ snippet: Snippet) async {
+        await snippetStore.recordUse(snippet.id)
+        snippetUsage = await snippetStore.usage
+    }
+
+    func duplicateSnippet(_ snippet: Snippet) {
+        let copy = Snippet(name: "\(snippet.name) Copy", text: snippet.text)
+        Task {
+            await snippetStore.save(copy)
+            snippetsChanged()
+            launcher.push(.snippetEditor(copy, isNew: false))
+        }
+    }
+
+    func deleteSnippet(_ snippet: Snippet) {
+        Task {
+            await snippetStore.delete(snippet.id)
+            snippetsChanged()
+            showHUD("Deleted snippet “\(snippet.name)”")
+        }
     }
 
     func importSnippets() {
@@ -182,6 +219,7 @@ final class AppModel {
         Task { quicklinkList = await quicklinks.links }
         Task {
             savedSnippets = await snippetStore.snippets
+            snippetUsage = await snippetStore.usage
             snippetExpander.update(savedSnippets)
         }
         Task {
@@ -236,7 +274,7 @@ final class AppModel {
         if arguments.contains("--new-snippet") {
             Task { try? await Task.sleep(for: .seconds(1.5)); showLauncher(); launcher.push(.snippetEditor(Snippet(name: "Email signature", text: "Best,\nVitor\n{date}", keyword: ";sig"), isNew: true)) }
         }
-        if arguments.contains("--show-snippets") { Task { try? await Task.sleep(for: .seconds(1.5)); showLauncher(); launcher.push(.snippets) } }
+        if arguments.contains("--show-snippets") { Task { try? await Task.sleep(for: .seconds(1.5)); showLauncher(); launcher.push(.snippets()) } }
         // Testing the updater end to end: check now and install whatever is newer.
         if arguments.contains("--update-now") { Task { await updates.check(); updates.install() } }
         if let index = arguments.firstIndex(of: "--chat") {
@@ -477,13 +515,18 @@ final class AppModel {
         for snippet in savedSnippets {
             let preview = snippet.text.split(separator: "\n", omittingEmptySubsequences: true).first.map(String.init)
             items.append(LauncherItem(id: "snippet.saved:\(snippet.id)", title: snippet.name, subtitle: snippet.keyword.map { "\($0)  ·  \(preview ?? "")" } ?? preview,
-                icon: .symbol("text.quote", .red), kind: .snippet, accessory: "Paste",
+                icon: .symbol("text.quote", .red), kind: .snippet, accessory: snippet.arguments.isEmpty ? "Paste" : "Fill & Paste",
                 actions: [
-                    LauncherAction(title: "Copy", symbol: "doc.on.doc") { [weak self] in self?.copySnippet(snippet); return false },
+                    LauncherAction(title: "Copy", symbol: "doc.on.doc") { [weak self] in
+                        guard snippet.arguments.isEmpty else { self?.launcher.push(.snippets(focus: snippet.id)); return true }
+                        self?.copySnippet(snippet)
+                        return false
+                    },
                     LauncherAction(title: "Edit Snippet", symbol: "pencil") { [weak self] in self?.launcher.push(.snippetEditor(snippet, isNew: false)); return true },
                 ]) { [weak self] in
+                // Arguments are asked for in Search Snippets, so the launcher stays open.
                 self?.pasteSnippet(snippet)
-                return false
+                return !snippet.arguments.isEmpty
             })
         }
         for link in quicklinkList {
@@ -626,7 +669,7 @@ final class AppModel {
                 self?.launcher.push(.snippetEditor(Snippet(name: "", text: ""), isNew: true))
             },
             command("search-snippets", "Search Snippets", "Find a snippet and paste it into your app", "text.page.badge.magnifyingglass", .red) { [weak self] in
-                self?.launcher.push(.snippets)
+                self?.launcher.push(.snippets())
             },
             command("import-snippets", "Import Snippets", "From Raycast's Export Snippets or a Lizard file", "square.and.arrow.down", .red, keepOpen: false) { [weak self] in
                 self?.hideLauncher()

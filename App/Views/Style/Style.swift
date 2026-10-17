@@ -43,24 +43,62 @@ struct KeyCap: View {
     }
 }
 
-/// Footer bar with the current action hints, like Raycast's action bar.
+/// Footer bar with the current action hints, like Raycast's action bar. Hints given an action
+/// are buttons too, so they can be clicked as well as pressed.
 struct ActionBar<Leading: View>: View {
-    let hints: [(String, String)]
-    @ViewBuilder var leading: Leading
+    struct Hint {
+        var title: String
+        var key: String
+        var action: (() -> Void)?
+    }
+
+    let hints: [Hint]
+    let leading: Leading
+
+    init(hints: [(String, String)], @ViewBuilder leading: () -> Leading) {
+        self.hints = hints.map { Hint(title: $0.0, key: $0.1) }
+        self.leading = leading()
+    }
+
+    init(actions: [Hint], @ViewBuilder leading: () -> Leading) {
+        hints = actions
+        self.leading = leading()
+    }
 
     var body: some View {
         HStack(spacing: 12) {
             leading
             Spacer()
             ForEach(Array(hints.enumerated()), id: \.offset) { _, hint in
-                HStack(spacing: 4) {
-                    Text(hint.0).font(.caption).foregroundStyle(.secondary)
-                    KeyCap(text: hint.1)
+                if let action = hint.action {
+                    Button(action: action) { label(hint) }.buttonStyle(ActionHintStyle())
+                } else {
+                    label(hint)
                 }
             }
         }
         .padding(.horizontal, 14)
         .frame(height: 34)
         .background(.bar)
+    }
+
+    private func label(_ hint: Hint) -> some View {
+        HStack(spacing: 4) {
+            Text(hint.title).font(.caption).foregroundStyle(.secondary)
+            KeyCap(text: hint.key)
+        }
+    }
+}
+
+/// A clickable hint: a soft highlight on hover and press.
+private struct ActionHintStyle: ButtonStyle {
+    @State private var hovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, 5).padding(.vertical, 3)
+            .background(Color.primary.opacity(configuration.isPressed ? 0.14 : hovering ? 0.08 : 0), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .contentShape(Rectangle())
+            .onHover { hovering = $0 }
     }
 }

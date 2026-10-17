@@ -30,7 +30,7 @@ import Testing
     }
 
     @Test func unknownPlaceholdersAndBracesStay() {
-        #expect(Snippet.expand("{argument name=\"x\"} and { json }").text == "{argument name=\"x\"} and { json }")
+        #expect(Snippet.expand("{weather} and { json }").text == "{weather} and { json }")
     }
 
     @Test func modifiersChainLikeRaycast() {
@@ -54,6 +54,47 @@ import Testing
     @Test func clipboardOffsetReadsHistory() {
         let result = Snippet.expand("{clipboard} / {clipboard offset=1}", clipboard: "now") { $0 == 1 ? "before" : nil }
         #expect(result.text == "now / before")
+    }
+
+    @Test func argumentsAreAskedOncePerName() {
+        let template = #"[ODY-{argument name="ticket"}] {argument name="ticket"} {argument name="tone" options="calm, loud"} {argument} {argument default="x"}"#
+        let arguments = Snippet.arguments(in: template)
+        #expect(arguments.map(\.key) == ["ticket", "tone", "#1", "#2"])
+        #expect(arguments[1].options == ["calm", "loud"])
+        #expect(arguments[1].defaultValue == "calm")
+        #expect(arguments[3].defaultValue == "x")
+        let result = Snippet.expand(template, arguments: ["ticket": "123", "#1": "a"])
+        #expect(result.text == "[ODY-123] 123 calm a x")
+        #expect(result.argumentRanges.map(\.key) == ["ticket", "ticket", "tone", "#1", "#2"])
+        #expect(result.argumentRanges[0].range == 5..<8)
+    }
+
+    @Test func argumentModifiersAndCursor() {
+        let result = Snippet.expand(#"{argument name="who" | uppercase}, {cursor}!"#, arguments: ["who": "ana"])
+        #expect(result.text == "ANA, !")
+        #expect(result.cursorFromEnd == 1)
+    }
+
+    @Test func contentTypes() {
+        #expect(Snippet(name: "a", text: "https://github.com/x").contentType == .link)
+        #expect(Snippet(name: "a", text: "Hi {clipboard}").contentType == .dynamic)
+        #expect(Snippet(name: "a", text: "Hi {argument}").contentType == .arguments)
+        #expect(Snippet(name: "a", text: "Hi there").contentType == .text)
+    }
+
+    @Test func storeStampsDatesAndCountsUse() async throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = SnippetStore(url: folder.appending(path: "snippets.json"))
+        let snippet = Snippet(name: "a", text: "b")
+        await store.save(snippet, now: Date(timeIntervalSince1970: 1))
+        await store.save(snippet, now: Date(timeIntervalSince1970: 2))
+        await store.recordUse(snippet.id)
+        let reopened = SnippetStore(url: folder.appending(path: "snippets.json"))
+        #expect(await reopened.snippets.first?.created == Date(timeIntervalSince1970: 1))
+        #expect(await reopened.snippets.first?.modified == Date(timeIntervalSince1970: 2))
+        #expect(await reopened.usage[snippet.id]?.count == 1)
     }
 
     @Test func uuidIsFresh() {

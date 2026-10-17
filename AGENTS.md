@@ -284,6 +284,16 @@ Lizard deliberately has **no store**: any GitHub repo folder is an extension sou
   ⌘1–⌘8), gliding selection via `matchedGeometryEffect`, gecko wags while typing, and the panel resizes to
   `Metrics.workspaceSize` for roomy routes (`LauncherModel.isWorkspace`) keeping its top edge fixed.
 
+## 5f. Snippets (Raycast-style)
+
+- `Snippet` (Search module) is Raycast's export shape plus optional `created`/`modified`. `Snippet.expand` fills every
+  placeholder in one regex pass; `{argument name="x" default="…" options="a, b"}` is keyed by name (unnamed ones are
+  `#1`, `#2`…) and `Expansion.argumentRanges` says where values landed so the preview can colour them.
+- Usage (times used, last used) is in `snippet-usage.json`, not `snippets.json`: iCloud sync compares the snippets
+  file, and pasting must not look like an edit.
+- A snippet with arguments never pastes blind: root search, ⌘K actions and keyword expansion all route to
+  `.snippets(focus:)`, which shows the argument fields beside the search; arguments without a default are required.
+
 ## 6. Known pitfalls (each of these happened)
 
 - **NSPanel typing:** the non-activating panel must override `canBecomeKey` → `true`.

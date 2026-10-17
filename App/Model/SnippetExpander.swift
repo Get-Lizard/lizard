@@ -7,7 +7,7 @@ import Search
 /// Watches key-downs in other apps (needs Accessibility, which auto-paste already uses); never
 /// in password fields (secure input) or Lizard's own windows. On a match it erases the keyword
 /// with backspaces, pastes the expanded text, puts the clipboard back and moves the caret to
-/// `{cursor}`.
+/// `{cursor}`. A snippet with `{argument}`s erases the keyword and asks for them in the launcher.
 @MainActor
 final class SnippetExpander {
     private var monitor: Any?
@@ -70,6 +70,7 @@ final class SnippetExpander {
     }
 
     private func expand(_ snippet: Snippet, erasing count: Int) {
+        guard snippet.arguments.isEmpty else { return askArguments(snippet, erasing: count) }
         expanding = true
         let saved = NSPasteboard.general.string(forType: .string)
         Task {
@@ -88,6 +89,21 @@ final class SnippetExpander {
                 AutoPaste.copy(text: saved)
                 app?.markOwnPasteboardWrite()
             }
+            await app?.recordSnippetUse(snippet)
+            matcher.reset()
+            expanding = false
+        }
+    }
+
+    /// A snippet with arguments: erase the keyword, then ask for the values in the launcher,
+    /// which pastes back into this app.
+    private func askArguments(_ snippet: Snippet, erasing count: Int) {
+        expanding = true
+        Task {
+            try? await Task.sleep(for: .milliseconds(30))
+            Self.press(kVK_Delete, times: count)
+            try? await Task.sleep(for: .milliseconds(30))
+            app?.askSnippetArguments(snippet)
             matcher.reset()
             expanding = false
         }

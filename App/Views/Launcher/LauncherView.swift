@@ -28,8 +28,8 @@ struct LauncherRootView: View {
                 QuicklinksView()
             case .quicklinkEditor(let link, let isNew):
                 QuicklinkEditorView(link: link, isNew: isNew).id(link.id)
-            case .snippets:
-                SnippetsView()
+            case .snippets(let focus):
+                SnippetsView(focus: focus).id(focus)
             case .snippetEditor(let snippet, let isNew):
                 SnippetEditorView(snippet: snippet, isNew: isNew).id(snippet.id)
             case .aiJob(let job):
@@ -122,7 +122,11 @@ struct SearchView: View {
                 }
             }
             if launcher.query.isEmpty { VoiceCoachBadge() }
-            ActionBar(hints: [("Open", "↩"), ("Actions", "⌘K"), ("Ask AI", "⇥")]) {
+            ActionBar(actions: [
+                .init(title: "Open", key: "↩") { launcher.performSelected() },
+                .init(title: "Actions", key: "⌘K") { showActions.toggle() },
+                .init(title: "Ask AI", key: "⇥") { launcher.askAI() },
+            ]) {
                 if let item = launcher.selectedItem {
                     Text(item.kind.rawValue).font(.caption).foregroundStyle(.secondary)
                 }
