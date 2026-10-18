@@ -39,9 +39,10 @@ export function Requirements({ center = false }: { center?: boolean }) {
   );
 }
 
-/** Always the newest release: the site's deploy copies the latest release's Lizard.dmg next to
- *  the page (and redeploys after every release), so it downloads without leaving the site. */
-export const DMG_URL = "./Lizard.dmg";
+/** The newest release's page on GitHub: `releases/tag/v<latest>` once the version is known,
+ *  and `releases/latest` (GitHub redirects it to the same page) until then. */
+const RELEASES_URL = "https://github.com/Get-Lizard/lizard/releases";
+export const releaseURL = (version: string | null) => (version ? `${RELEASES_URL}/tag/v${version}` : `${RELEASES_URL}/latest`);
 
 /** The latest version number, read live from GitHub (falls back to no number). */
 function useLatestVersion() {
@@ -61,17 +62,19 @@ function useLatestVersion() {
   return version;
 }
 
-/** Signed, notarized disk image of the latest release. */
+/** Opens the latest release (signed, notarized disk image and its notes). */
 export function DownloadButton({ large = false }: { large?: boolean }) {
   const version = useLatestVersion();
   return (
     <a
-      href={DMG_URL}
-      download="Lizard.dmg"
+      href={releaseURL(version)}
       className={`group inline-flex items-center gap-2.5 rounded-full bg-accent font-semibold text-accent-ink shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--accent)_70%,transparent)] transition-all duration-300 ease-out-expo hover:brightness-110 active:scale-[0.98] ${large ? "h-14 px-6 text-[16px]" : "h-12 px-5 text-[15px]"}`}
     >
       <DownloadSimple size={19} weight="bold" className="transition-transform duration-300 group-hover:translate-y-0.5" />
-      <span>Download for Mac</span>
+      <span className="flex flex-col items-start leading-tight">
+        <span>Download for Mac</span>
+        <span className="text-[11.5px] font-medium opacity-75">Apple silicon · M1 or later</span>
+      </span>
       {version && <span className="rounded-full bg-accent-ink/15 px-2 py-0.5 text-[12.5px] font-medium tabular-nums">v{version}</span>}
     </a>
   );
