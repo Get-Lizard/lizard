@@ -39,8 +39,9 @@ export function Requirements({ center = false }: { center?: boolean }) {
   );
 }
 
-/** Always the newest release: GitHub serves the fixed-name asset of the latest release. */
-export const DMG_URL = "https://github.com/Get-Lizard/lizard/releases/latest/download/Lizard.dmg";
+/** Always the newest release: the site's deploy copies the latest release's Lizard.dmg next to
+ *  the page (and redeploys after every release), so it downloads without leaving the site. */
+export const DMG_URL = "./Lizard.dmg";
 
 /** The latest version number, read live from GitHub (falls back to no number). */
 function useLatestVersion() {
@@ -66,6 +67,7 @@ export function DownloadButton({ large = false }: { large?: boolean }) {
   return (
     <a
       href={DMG_URL}
+      download="Lizard.dmg"
       className={`group inline-flex items-center gap-2.5 rounded-full bg-accent font-semibold text-accent-ink shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--accent)_70%,transparent)] transition-all duration-300 ease-out-expo hover:brightness-110 active:scale-[0.98] ${large ? "h-14 px-6 text-[16px]" : "h-12 px-5 text-[15px]"}`}
     >
       <DownloadSimple size={19} weight="bold" className="transition-transform duration-300 group-hover:translate-y-0.5" />

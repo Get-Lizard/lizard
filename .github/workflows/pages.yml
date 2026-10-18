@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
     paths: ["website/**", ".github/workflows/pages.yml"]
+  # A new release redeploys the site so it serves the new Lizard.dmg.
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -17,6 +21,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -33,6 +38,12 @@ jobs:
           cache-dependency-path: website/package-lock.json
       - run: npm ci
       - run: npm run build
+      # The Download button links to ./Lizard.dmg: the latest release's disk image, served from
+      # the site itself so it downloads directly instead of bouncing through github.com.
+      - name: Add the latest Lizard.dmg
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download --repo "${{ github.repository }}" --pattern Lizard.dmg --dir dist --clobber
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
