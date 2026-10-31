@@ -378,9 +378,10 @@ private struct ChatMessageRow: View {
 /// Three dots that pulse while the first words are on their way.
 private struct TypingDots: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var onScreen = true
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion)) { context in
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion || !onScreen)) { context in
             let time = context.date.timeIntervalSinceReferenceDate
             HStack(spacing: 5) {
                 ForEach(0..<3) { index in
@@ -391,6 +392,7 @@ private struct TypingDots: View {
                 }
             }
         }
+        .onWindowVisibility { onScreen = $0 }
         .accessibilityLabel("Thinking")
     }
 }

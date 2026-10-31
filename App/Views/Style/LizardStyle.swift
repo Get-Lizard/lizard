@@ -7,9 +7,10 @@ struct BioluminescentRim: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.controlActiveState) private var activeState
     @State private var flare: Double = 0
+    @State private var onScreen = true
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion || activeState == .inactive)) { context in
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion || activeState == .inactive || !onScreen)) { context in
             let angle = reduceMotion ? 30 : context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 14) / 14 * 360
             RoundedRectangle(cornerRadius: Metrics.corner, style: .continuous)
                 .strokeBorder(
@@ -21,6 +22,7 @@ struct BioluminescentRim: View {
                 .shadow(color: Brand.moss.opacity(0.25 + flare * 0.4), radius: 6 + flare * 10)
         }
         .allowsHitTesting(false)
+        .onWindowVisibility { onScreen = $0 }
         .onChange(of: pulse) {
             guard !reduceMotion else { return }
             flare = 1

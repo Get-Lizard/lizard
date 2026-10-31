@@ -14,6 +14,7 @@ struct WelcomeScene: View {
     @State private var pointer: CGPoint?
     @State private var poke: Date = .distantPast
     @State private var arrived = false
+    @State private var onScreen = true
 
     static let walkDuration = 2.4
     private static let settleDuration = 0.7
@@ -36,7 +37,7 @@ struct WelcomeScene: View {
     }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 60, paused: reduceMotion)) { context in
+        TimelineView(.animation(minimumInterval: 1 / 60, paused: reduceMotion || !onScreen)) { context in
             let elapsed = reduceMotion ? 100 : context.date.timeIntervalSince(start)
             let sincePoke = context.date.timeIntervalSince(poke)
             Canvas { canvas, size in
@@ -49,6 +50,7 @@ struct WelcomeScene: View {
             }
         }
         .contentShape(Rectangle())
+        .onWindowVisibility { onScreen = $0 }
         .onContinuousHover { phase in
             if case .active(let location) = phase { pointer = location } else { pointer = nil }
         }

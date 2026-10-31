@@ -332,6 +332,11 @@ Lizard deliberately has **no store**: any GitHub repo folder is an extension sou
 - Spawned helper agents in this project produced nothing for 20+ minutes and had to be stopped; check their output
   early rather than waiting on them.
 
+- **Animations in hidden panels burn CPU forever.** Ordered-out panels (launcher, HUD, voice pill) keep their SwiftUI
+  tree, so a `TimelineView(.animation)` or a `repeatForever` animation in them redraws for as long as Lizard runs
+  (it reached ~70% CPU and "Using Significant Energy"). Pause every looping animation with `.onWindowVisibility`
+  (`App/Views/Style/WindowVisibility.swift`), and don't use `repeatForever`: drive loops from a pausable `TimelineView`.
+
 ## 7. Status
 
 Done (phases 0–7 of `docs/PLAN.md`): brand + splash, setup with hotkey recording, launcher, search and quicklinks,

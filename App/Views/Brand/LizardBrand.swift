@@ -265,9 +265,10 @@ struct LizardMarkView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var eyes: CGFloat = 1
     @State private var tongue: CGFloat = 0
+    @State private var onScreen = true
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion)) { context in
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion || !onScreen)) { context in
             let time = context.date.timeIntervalSinceReferenceDate
             let speed = thinking ? 7.0 : 1.3
             let sway = reduceMotion ? 0 : CGFloat(sin(time * speed)) * (thinking ? 1 : 0.35)
@@ -275,7 +276,8 @@ struct LizardMarkView: View {
             LizardMark(style: style, tailCurl: curl, sway: sway, legPhase: thinking ? sway : 0, eyesOpen: eyes, tongue: tongue)
         }
         .frame(width: size, height: size)
-        .task(id: reduceMotion) { await blinkLoop() }
+        .onWindowVisibility { onScreen = $0 }
+        .task(id: reduceMotion || !onScreen) { await blinkLoop() }
         .onChange(of: summon) { flick() }
         .onAppear { if summon { flick() } }
     }
@@ -290,7 +292,7 @@ struct LizardMarkView: View {
     }
 
     private func blinkLoop() async {
-        guard !reduceMotion else { return }
+        guard !reduceMotion, onScreen else { return }
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(Double.random(in: 3.5...6)))
             withAnimation(.easeIn(duration: 0.07)) { eyes = 0.05 }
@@ -356,9 +358,10 @@ struct LizardPattern: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.controlActiveState) private var activeState
+    @State private var onScreen = true
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 20, paused: reduceMotion || activeState == .inactive)) { context in
+        TimelineView(.animation(minimumInterval: 1 / 20, paused: reduceMotion || activeState == .inactive || !onScreen)) { context in
             let time = context.date.timeIntervalSinceReferenceDate
             Canvas { canvas, size in
                 let spacing: CGFloat = 64
@@ -378,6 +381,7 @@ struct LizardPattern: View {
                 }
             }
         }
+        .onWindowVisibility { onScreen = $0 }
     }
 }
 
