@@ -65,6 +65,14 @@ struct ExtensionsSettings: View {
                 .environment(app)
                 .frame(width: 520, height: 480)
         }
+        .sheet(item: Binding(get: { extensions.preferencesTarget }, set: { extensions.preferencesTarget = $0 })) { target in
+            if let item = extensions.installedExtension(named: target.extensionName) {
+                ExtensionPreferencesSheet(
+                    installed: item, command: item.commands.first { $0.name == target.commandName }
+                )
+                .environment(app)
+            }
+        }
     }
 
     private func install() {
@@ -76,6 +84,10 @@ struct ExtensionsSettings: View {
 private struct ExtensionRow: View {
     @Environment(AppModel.self) private var app
     let item: InstalledExtension
+
+    private var hasPreferences: Bool {
+        !(item.manifest.preferences ?? []).isEmpty || item.commands.contains { !($0.preferences ?? []).isEmpty }
+    }
 
     var body: some View {
         let extensions = app.extensions
@@ -102,6 +114,25 @@ private struct ExtensionRow: View {
                 ProgressView().controlSize(.small)
             } else if extensions.updates[item.name] != nil {
                 Button("Update") { extensions.update(item.name) }
+            }
+            if hasPreferences {
+                Menu {
+                    if !(item.manifest.preferences ?? []).isEmpty {
+                        Button("Extension Preferences…") { extensions.showPreferences(item.name) }
+                    }
+                    let withPreferences = item.commands.filter { !($0.preferences ?? []).isEmpty }
+                    if !withPreferences.isEmpty {
+                        Divider()
+                        ForEach(withPreferences, id: \.name) { command in
+                            Button("\(command.title) Preferences…") { extensions.showPreferences(item.name, command: command.name) }
+                        }
+                    }
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .help("Preferences")
+                }
+                .menuStyle(.borderlessButton)
+                .frame(width: 28)
             }
             Menu {
                 if let location = item.source.github {

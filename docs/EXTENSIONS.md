@@ -65,7 +65,8 @@ my-extension/
 - `mode`: `view` (a List/Detail/Form/Grid in the launcher), `no-view` (runs and exits — show a HUD/toast), or
   `menu-bar` (a menu-bar item; Lizard re-runs it on `interval`, e.g. `"5m"`, `"1h"`, minimum 1 minute recommended).
 - Preference types: `textfield`, `password`, `checkbox`, `dropdown` (with `data`), `appPicker`, `file`, `directory`.
-  `password` values are never included in backups or exports.
+  `password` values are never included in backups or exports. The person fills these in under **Settings › Extensions › ⌶**
+  (the same pane `openExtensionPreferences()` opens), or in Raycast and then importing.
 
 ## 3. Rules
 

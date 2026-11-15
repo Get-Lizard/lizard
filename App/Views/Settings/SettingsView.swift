@@ -7,9 +7,10 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var app
 
     var body: some View {
-        TabView {
-            Tab("General", systemImage: "gearshape") { GeneralSettings() }
-            Tab("Shortcuts", systemImage: "keyboard") {
+        @Bindable var app = app
+        TabView(selection: $app.settingsTab) {
+            Tab("General", systemImage: "gearshape", value: .general) { GeneralSettings() }
+            Tab("Shortcuts", systemImage: "keyboard", value: .shortcuts) {
                 Form {
                     Section("Open Lizard with") {
                         LauncherShortcutPicker()
@@ -25,7 +26,7 @@ struct SettingsView: View {
                 }
                 .formStyle(.grouped)
             }
-            Tab("AI", systemImage: "sparkles") {
+            Tab("AI", systemImage: "sparkles", value: .ai) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         AISetupSection()
@@ -34,7 +35,7 @@ struct SettingsView: View {
                     .padding(20)
                 }
             }
-            Tab("Accounts", systemImage: "person.crop.circle") {
+            Tab("Accounts", systemImage: "person.crop.circle", value: .accounts) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         GitHubConnectSection()
@@ -43,8 +44,8 @@ struct SettingsView: View {
                     .padding(20)
                 }
             }
-            Tab("Extensions", systemImage: "puzzlepiece.extension") { ExtensionsSettings() }
-            Tab("Sync & Backup", systemImage: "icloud") { SyncSettings() }
+            Tab("Extensions", systemImage: "puzzlepiece.extension", value: .extensions) { ExtensionsSettings() }
+            Tab("Sync & Backup", systemImage: "icloud", value: .sync) { SyncSettings() }
         }
         .frame(width: 640, height: 560)
     }

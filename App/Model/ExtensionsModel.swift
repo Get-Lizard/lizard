@@ -9,6 +9,13 @@ import Observation
 @Observable
 @MainActor
 final class ExtensionsModel {
+    /// Which preferences the sheet is editing: the extension on its own, or one of its commands.
+    struct PreferencesTarget: Identifiable, Hashable {
+        let extensionName: String
+        let commandName: String?
+        var id: String { commandName.map { "\(extensionName)/\($0)" } ?? extensionName }
+    }
+
     struct Suggestion {
         let name: String
         let title: String
@@ -44,6 +51,9 @@ final class ExtensionsModel {
     private(set) var updating: Set<String> = []
     /// Menu-bar commands macOS hid (no room in the menu bar), by "extension/command".
     private(set) var hiddenMenuBars: Set<String> = []
+    /// Non-nil while the preferences sheet is up — set by Settings, the launcher and the extensions
+    /// themselves (`openExtensionPreferences()`), so one pane serves all three entry points.
+    var preferencesTarget: PreferencesTarget?
 
     let store: ExtensionStore
     @ObservationIgnored weak var app: AppModel?
@@ -296,8 +306,8 @@ final class ExtensionsModel {
         Task {
             let missing = await store.missingRequiredPreferences(for: installedExtension, command: command)
             if !missing.isEmpty {
-                app.showHUD("Set \(missing.map { $0.title ?? $0.name }.joined(separator: ", ")) in Settings › Extensions")
-                app.openSettings()
+                // Raycast blocks the command here too; the pane is where the gap gets filled.
+                showPreferences(installedExtension.name, command: command.name)
                 return
             }
             do {
@@ -356,11 +366,24 @@ final class ExtensionsModel {
         case "updateCommandMetadata":
             subtitles["\(extensionName)/\(command)"] = params["subtitle"]?.string
         case "openPreferences":
-            app.openSettings()
+            // `scope` comes from openCommandPreferences() vs openExtensionPreferences().
+            showPreferences(extensionName, command: params["scope"]?.string == "command" ? command : nil)
         default:
             break
         }
     }
+
+    // MARK: Preferences pane
+
+    /// Shows the preferences sheet for an extension, or for one of its commands.
+    func showPreferences(_ extensionName: String, command: String? = nil) {
+        preferencesTarget = PreferencesTarget(extensionName: extensionName, commandName: command)
+        app?.openSettings(tab: .extensions)
+    }
+
+    func dismissPreferences() { preferencesTarget = nil }
+
+    func installedExtension(named name: String) -> InstalledExtension? { installed.first { $0.name == name } }
 
     // MARK: Menu bar commands
 
