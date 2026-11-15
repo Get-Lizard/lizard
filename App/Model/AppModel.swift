@@ -24,6 +24,9 @@ final class AppModel {
 
     enum Period { case today, week }
 
+    /// Settings tabs, so other code can open one (`openSettings(tab: .extensions)`).
+    enum SettingsTab: Hashable { case general, shortcuts, ai, accounts, extensions, sync }
+
     let setup = SetupModel()
     let ai = AIService()
     let accounts = AccountsModel()
@@ -58,10 +61,15 @@ final class AppModel {
     private(set) var previousApp: NSRunningApplication?
     private(set) var workLogContextApp: String?
 
+    /// Which settings tab is showing; `openSettings(tab:)` sets it before raising the window.
+    var settingsTab: SettingsTab = .general
+
     @ObservationIgnored private var launcherPanel: FloatingPanelController<AnyView>?
     @ObservationIgnored private var workLogPanel: FloatingPanelController<AnyView>?
     @ObservationIgnored private var hudPanel: NSPanel?
     @ObservationIgnored private var splashWindow: NSWindow?
+    /// Called when the splash animation finishes (see `finishSplash`).
+    @ObservationIgnored private var splashCompletion: (() -> Void)?
     @ObservationIgnored private var setupWindow: NSWindow?
     @ObservationIgnored private var settingsWindow: NSWindow?
 
@@ -713,6 +721,7 @@ final class AppModel {
     // MARK: Windows
 
     func showSplash(firstLaunch: Bool, then: (() -> Void)? = nil) {
+        splashCompletion = then
         let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 520, height: 360), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         window.isOpaque = false
         window.backgroundColor = .clear
@@ -727,13 +736,21 @@ final class AppModel {
                 MainActor.assumeIsolated {
                     window?.orderOut(nil)
                     self?.splashWindow = nil
-                    then?()
+                    self?.finishSplash()
                 }
             }
         })
         window.center()
         window.makeKeyAndOrderFront(nil)
         splashWindow = window
+    }
+
+    /// The splash's callback lives in a property: a non-Sendable closure captured by the
+    /// animation's @Sendable completion handler is a data-race error under Swift 6.
+    private func finishSplash() {
+        let then = splashCompletion
+        splashCompletion = nil
+        then?()
     }
 
     func showSetup() {
@@ -754,7 +771,10 @@ final class AppModel {
         updateDockPresence()
     }
 
-    func openSettings() {
+    func openSettings() { openSettings(tab: settingsTab) }
+
+    func openSettings(tab: SettingsTab) {
+        settingsTab = tab
         hideLauncher()
         if let settingsWindow {
             Self.bringToFront(settingsWindow)

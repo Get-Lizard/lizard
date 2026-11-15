@@ -36,10 +36,16 @@ public struct InstalledExtension: Sendable, Hashable, Identifiable {
 /// Installs, builds and lists extensions; keeps their preferences.
 public actor ExtensionStore {
     public let root: URL
+    private let secrets: any PreferenceSecretStoring
     private let log: @Sendable (String) -> Void
 
-    public init(root: URL = AppPaths.applicationSupport.appending(path: "Extensions", directoryHint: .isDirectory), log: @escaping @Sendable (String) -> Void = { _ in }) {
+    public init(
+        root: URL = AppPaths.applicationSupport.appending(path: "Extensions", directoryHint: .isDirectory),
+        secrets: any PreferenceSecretStoring = KeychainPreferenceSecrets(),
+        log: @escaping @Sendable (String) -> Void = { _ in }
+    ) {
         self.root = root
+        self.secrets = secrets
         self.log = log
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     }
@@ -100,6 +106,7 @@ public actor ExtensionStore {
         let directory = root.appending(path: name, directoryHint: .isDirectory)
         guard FileManager.default.fileExists(atPath: directory.path) else { return }
         try FileManager.default.removeItem(at: directory)
+        secrets.remove(keys: secrets.keys().filter { $0.hasPrefix("\(name)/") })
     }
 
     private func installFolder(_ folder: URL, source: ExtensionSource) async throws -> InstalledExtension {
@@ -266,24 +273,78 @@ public actor ExtensionStore {
 
     private func preferencesURL(_ name: String) -> URL { root.appending(path: name).appending(path: "preferences.json") }
 
-    /// Saved values merged over the manifest defaults (extension-wide + command).
+    /// Every `password`-typed preference name in the manifest, extension-wide and per command.
+    private func passwordNames(_ manifest: ExtensionManifest) -> Set<String> {
+        var names = Set((manifest.preferences ?? []).filter { $0.type == "password" }.map(\.name))
+        for command in manifest.commands {
+            names.formUnion((command.preferences ?? []).filter { $0.type == "password" }.map(\.name))
+        }
+        return names
+    }
+
+    /// Saved values merged over the manifest defaults (extension-wide + command), with password
+    /// values read from the Keychain.
     public func preferences(for installed: InstalledExtension, command: ExtensionManifest.Command?) -> [String: HostJSON] {
         var values = installed.manifest.defaultPreferences(for: command)
-        let saved = (try? Data(contentsOf: preferencesURL(installed.name))).flatMap { try? JSONDecoder().decode([String: HostJSON].self, from: $0) } ?? [:]
+        let saved = migratingStoredSecrets(installed.name, manifest: installed.manifest)
         let names = Set(installed.manifest.allPreferences(for: command).map(\.name))
         for (key, value) in saved where names.contains(key) { values[key] = value }
+        for preference in installed.manifest.allPreferences(for: command) where preference.type == "password" {
+            if let secret = secrets.value(for: KeychainPreferenceSecrets.key(installed.name, preference.name)), !secret.isEmpty {
+                values[preference.name] = .string(secret)
+            }
+        }
         return values
+    }
+
+    /// Older builds wrote password values into `preferences.json`; move them into the Keychain the
+    /// first time an extension's preferences are read in this build.
+    private func migratingStoredSecrets(_ name: String, manifest: ExtensionManifest) -> [String: HostJSON] {
+        var saved = savedPreferences(name)
+        let secretNames = passwordNames(manifest)
+        var moved = false
+        for key in secretNames {
+            guard let raw = saved[key] else { continue }
+            let value = raw.string ?? ""
+            let account = KeychainPreferenceSecrets.key(name, key)
+            if !value.isEmpty, secrets.value(for: account) == nil { secrets.set(value, for: account) }
+            saved[key] = nil
+            moved = true
+        }
+        if moved { try? write(saved, to: name) }
+        return saved
     }
 
     public func savedPreferences(_ name: String) -> [String: HostJSON] {
         (try? Data(contentsOf: preferencesURL(name))).flatMap { try? JSONDecoder().decode([String: HostJSON].self, from: $0) } ?? [:]
     }
 
-    /// Merges `values` into the saved preferences (nil removes a key).
+    /// Merges `values` into the saved preferences (nil removes a key). Password values go to the
+    /// Keychain and never touch the file.
     public func setPreferences(_ name: String, values: [String: HostJSON?]) throws {
         var saved = savedPreferences(name)
-        for (key, value) in values { saved[key] = value }
-        try JSONEncoder().encode(saved).write(to: preferencesURL(name), options: .atomic)
+        let secretNames = extensionNamed(name).map { passwordNames($0.manifest) } ?? []
+        for (key, value) in values {
+            if secretNames.contains(key) {
+                // An empty field means "remove", the same rule the pane applies to every text field.
+                let text = value.flatMap(\.string)
+                secrets.set(text?.isEmpty == false ? text : nil, for: KeychainPreferenceSecrets.key(name, key))
+                saved[key] = nil
+            } else {
+                saved[key] = value
+            }
+        }
+        try write(saved, to: name)
+    }
+
+    /// Password preferences stored in the Keychain for this extension.
+    public func storedSecrets(_ name: String) -> Set<String> {
+        let prefix = "\(name)/"
+        return Set(secrets.keys().filter { $0.hasPrefix(prefix) }.map { String($0.dropFirst(prefix.count)) })
+    }
+
+    private func write(_ values: [String: HostJSON], to name: String) throws {
+        try JSONEncoder().encode(values).write(to: preferencesURL(name), options: .atomic)
     }
 
     /// Required preferences without a value (the command can't run until they're set).
