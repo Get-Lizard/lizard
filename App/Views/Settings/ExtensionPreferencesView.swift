@@ -107,6 +107,9 @@ struct ExtensionPreferencesSheet: View {
             if let description = preference.description {
                 Text(description).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
+            if preference.kind == .password {
+                Text("Stored in the Keychain, never in preferences.json.").font(.caption2).foregroundStyle(.tertiary)
+            }
         }
         .padding(.vertical, 2)
     }
@@ -185,8 +188,10 @@ struct ExtensionPreferencesSheet: View {
 
     private func load() async {
         guard draft == nil else { return }
-        let saved = await app.extensions.store.savedPreferences(installed.name)
-        draft = PreferenceDraft(manifest: installed.manifest, command: command, saved: saved)
+        // Effective values: saved preferences with the Keychain-held passwords merged in, so a stored
+        // secret counts as filled in and an untouched field is never rewritten.
+        let values = await app.extensions.store.preferences(for: installed, command: command)
+        draft = PreferenceDraft(manifest: installed.manifest, command: command, saved: values)
     }
 
     private func save() {
